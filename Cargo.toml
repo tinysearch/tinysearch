@@ -1,0 +1,10 @@
+[package]
+authors = ["Matthias Endler <matthias-endler@gmx.net>"]
+name = "tinysearch"
+version = "0.1.0"
+
+[dependencies]
+bloom = "0.3.2"
+lazy_static = "1.0.0"
+structopt = "0.1.7"
+structopt-derive = "0.1.6"
