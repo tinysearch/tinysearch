@@ -27,10 +27,10 @@ struct Opt {
 fn main() {
 	let opt = Opt::from_args();
 	// TODO: Proper error handling
-	run(opt.corpus_path, opt.search_terms).unwrap();
+	run(opt.corpus_path, &opt.search_terms).unwrap();
 }
 
-fn run(corpus_path: String, search_terms: String) -> Result<(), Box<Error>> {
+fn run(corpus_path: String, search_terms: &str) -> Result<(), Box<Error>> {
 	let filters = generate(corpus_path)?;
 	let matches = search(search_terms, filters);
 	println!("Found the following matches: {:#?}", matches);
@@ -40,21 +40,22 @@ fn run(corpus_path: String, search_terms: String) -> Result<(), Box<Error>> {
 // def search(search_string):
 //    search_terms = re.split("\W+", search_string)
 //    return [name for name, filter in filters.items() if all(term in filter for term in search_terms)]
-fn search(query: String, filters: HashMap<OsString, BloomFilter>) -> HashSet<OsString> {
+#[no_mangle]
+pub fn search(query: &str, filters: HashMap<OsString, BloomFilter>) -> Vec<OsString> {
 	let search_terms: HashSet<String> =
 		query.split_whitespace().map(|s| s.to_lowercase()).collect();
-	let mut results = HashSet::new();
-	for (name, filter) in filters {
-		if search_terms.iter().all(|term| filter.contains(term)) {
-			results.insert(name);
-		}
-	}
-	results
+
+	filters
+		.into_iter()
+		.filter(|&(_, ref filter)| search_terms.iter().all(|term| filter.contains(term)))
+		.map(|(name, _)| name)
+		.collect()
 }
 
 // Read all my posts.
 // # posts = {post_name: open(POST_DIR + post_name).read() for post_name in os.listdir(POST_DIR)}
-fn generate(dir: String) -> Result<HashMap<OsString, BloomFilter>, Box<Error>> {
+#[no_mangle]
+pub fn generate(dir: String) -> Result<HashMap<OsString, BloomFilter>, Box<Error>> {
 	let paths: Vec<PathBuf> = fs::read_dir(dir)?
 		.filter_map(Result::ok)
 		.map(|f| f.path())
@@ -83,7 +84,7 @@ fn generate(dir: String) -> Result<HashMap<OsString, BloomFilter>, Box<Error>> {
 				post,
 				content
 					.split_whitespace()
-					.map(|s| s.to_lowercase())
+					.map(str::to_lowercase)
 					.collect::<HashSet<String>>(),
 			)
 		})
