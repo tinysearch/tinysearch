@@ -80,7 +80,9 @@ pub fn prepare_posts(dir: String) -> Result<HashMap<OsString, String>, Box<Error
 // Read all my posts.
 // # posts = {post_name: open(POST_DIR + post_name).read() for post_name in os.listdir(POST_DIR)}
 #[no_mangle]
-pub fn generate(posts: HashMap<OsString, String>) -> Result<HashMap<OsString, BloomFilter>, Box<Error>> {
+pub fn generate(
+    posts: HashMap<OsString, String>,
+) -> Result<HashMap<OsString, BloomFilter>, Box<Error>> {
     // Create a dictionary of {"post name": "lowercase word set"}.
     // split_posts = {name: set(re.split("\W+", contents.lower())) for name, contents in posts.items()}
     let split_posts: HashMap<OsString, HashSet<String>> = posts
