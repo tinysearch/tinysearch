@@ -3,6 +3,7 @@ use walkdir::{DirEntry, WalkDir};
 
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
+use std::env;
 use std::error::Error;
 use std::fs;
 use std::fs::File;
@@ -15,30 +16,15 @@ mod types;
 use crate::types::Storage;
 
 fn main() -> Result<(), Box<Error>> {
-    let filters = build(".".to_string())?;
+    let input_dir = env::var("INPUT_DIR")?;
+    let filters = build(input_dir)?;
     let storage = Storage::from(filters);
     fs::write("storage", storage.to_bytes()?)?;
     Ok(())
-
-    // let words = vec!["foo", "bar", "xylophone", "milagro"];
-    // let mut filter = cuckoofilter::CuckooFilter::new();
-
-    // let mut insertions = 0;
-    // for s in &words {
-    //     filter.add(s).unwrap();
-    //     insertions += 1;
-    // }
-
-    // Export the fingerprint data stored in the filter,
-    // along with the filter's current length.
-    // let store: ExportedCuckooFilter = filter.export();
-    // let encoded: Vec<u8> = bincode::serialize(&store).unwrap();
-    // let encoded: Vec<u8> = bincode::serialize(&filters).unwrap();
-    // fs::write("store", encoded);
-    // Ok(())
 }
 
 fn build(corpus_path: String) -> Result<HashMap<PathBuf, CuckooFilter<DefaultHasher>>, Box<Error>> {
+    println!("{}", corpus_path);
     let posts = prepare_posts(corpus_path)?;
     generate_filters(posts)
 }
@@ -91,11 +77,11 @@ fn is_markdown(entry: &DirEntry) -> bool {
 // prepares the files in the given directory to be consumed by the generator
 pub fn prepare_posts(dir: String) -> Result<HashMap<PathBuf, String>, Box<Error>> {
     let mut posts: HashMap<PathBuf, String> = HashMap::new();
+    println!("Analyzing {}", dir);
     let walker = WalkDir::new(dir).into_iter();
     for entry in walker.filter_entry(|e| is_markdown(e)) {
         let entry = entry?;
         println!("Analyzing {}", entry.path().display());
-
         let mut post = File::open(entry.path())?;
         let mut contents = String::new();
         post.read_to_string(&mut contents)?;
