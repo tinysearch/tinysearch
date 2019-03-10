@@ -9,6 +9,12 @@ The idea is to run all posts on there through tinysearch, which will generate a 
 
 The target are plain-old HTML websites commonly rendered with static site-generators like [Jekyll](https://jekyllrb.com/), [Hugo](https://gohugo.io/), [Gutenberg](https://github.com/Keats/gutenberg), or [Cobalt](https://github.com/cobalt-org/cobalt.rs).
 
+## Usage
+
+```
+INPUT_DIR=../path/to/posts/ cargo cargo run -- "find these keywords"
+```
+
 
 ## License
 
