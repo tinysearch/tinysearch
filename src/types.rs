@@ -1,14 +1,9 @@
-use bincode::{self, Error as BincodeError};
+use bincode::Error as BincodeError;
 use cuckoofilter::{self, CuckooFilter, ExportedCuckooFilter};
-use serde_derive::{Deserialize, Serialize};
 use std::convert::From;
 
 use std::collections::hash_map::DefaultHasher;
-use std::collections::{HashMap, HashSet};
-use std::error::Error;
-use std::fs;
-use std::fs::File;
-use std::io::Read;
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 pub type Filters = HashMap<PathBuf, CuckooFilter<DefaultHasher>>;
@@ -44,8 +39,8 @@ impl Storage {
             .collect()
     }
 
-    fn hydrate(exportedFilters: ExportedFilters) -> Filters {
-        exportedFilters
+    fn hydrate(exported_filters: ExportedFilters) -> Filters {
+        exported_filters
             .into_iter()
             .map(|(key, exported)| (key.clone(), CuckooFilter::<DefaultHasher>::from(exported)))
             .collect()

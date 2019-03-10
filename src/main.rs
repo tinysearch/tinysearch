@@ -1,22 +1,12 @@
-#[macro_use]
-extern crate serde_derive;
-
 extern crate structopt;
-#[macro_use]
-extern crate structopt_derive;
 #[macro_use]
 extern crate lazy_static;
 
-use bincode::{deserialize, serialize};
-use cuckoofilter::{self, CuckooFilter, ExportedCuckooFilter};
 use structopt::StructOpt;
 
-use std::collections::hash_map::DefaultHasher;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::error::Error;
 use std::fs;
-use std::fs::File;
-use std::io::Read;
 use std::path::PathBuf;
 use std::process;
 

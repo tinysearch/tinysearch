@@ -1,5 +1,4 @@
-use bincode;
-use cuckoofilter::{self, CuckooFilter, ExportedCuckooFilter};
+use cuckoofilter::{self, CuckooFilter};
 use walkdir::{DirEntry, WalkDir};
 
 use std::collections::hash_map::DefaultHasher;
@@ -74,7 +73,7 @@ pub fn generate_filters(
         // let mut filter = Cuckoofilter::with_capacity(words.len() as u32);
         let mut filter = cuckoofilter::CuckooFilter::new();
         for word in words {
-            filter.add(&word);
+            filter.add(&word)?;
         }
         filters.insert(name, filter);
     }
