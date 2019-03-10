@@ -2,9 +2,20 @@
 authors = ["Matthias Endler <matthias-endler@gmx.net>"]
 name = "tinysearch"
 version = "0.1.0"
+edition = "2018"
 
 [dependencies]
-bloom = "0.3.2"
-lazy_static = "1.0.0"
-structopt = "0.1.7"
-structopt-derive = "0.1.6"
+cuckoofilter = {git = "https://github.com/mre/rust-cuckoofilter" }
+lazy_static = "1.3.0"
+structopt = "0.2.15"
+structopt-derive = "0.2.15"
+bincode = "1.1.2"
+serde = "1.0.89"
+serde_derive = "1.0.89"
+
+[build-dependencies]
+cuckoofilter = {git = "https://github.com/mre/rust-cuckoofilter" }
+bincode = "1.1.2"
+serde = "1.0.89"
+serde_derive = "1.0.89"
+walkdir = "2.2.7"
