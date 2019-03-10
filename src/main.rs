@@ -1,3 +1,6 @@
+#[macro_use]
+extern crate serde_derive;
+
 extern crate structopt;
 #[macro_use]
 extern crate structopt_derive;
@@ -11,7 +14,6 @@ use structopt::StructOpt;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::ffi::OsString;
 use std::fs;
 use std::fs::File;
 use std::io::Read;
@@ -25,14 +27,14 @@ struct Opt {
 }
 
 fn load_filters() -> CuckooFilter<DefaultHasher> {
-    let raw = fs::read("store").unwrap();
+    let raw = fs::read("storage").unwrap();
     let decoded: ExportedCuckooFilter = deserialize(&raw[..]).unwrap();
     let recovered_filter = CuckooFilter::<DefaultHasher>::from(decoded);
     recovered_filter
 }
 
 lazy_static! {
-        // static ref FILTERS: HashMap<OsString, CuckooFilter<std::collections::hash_map::DefaultHasher>>> =
+        // static ref FILTERS: HashMap<String, CuckooFilter<std::collections::hash_map::DefaultHasher>>> =
         static ref FILTERS: CuckooFilter<std::collections::hash_map::DefaultHasher> = load_filters();
 }
 
@@ -53,8 +55,8 @@ fn run(search_terms: &str) -> Result<(), Box<Error>> {
 #[no_mangle]
 pub fn search(
     query: &str,
-    filters: HashMap<OsString, CuckooFilter<std::collections::hash_map::DefaultHasher>>,
-) -> Vec<OsString> {
+    filters: HashMap<String, CuckooFilter<std::collections::hash_map::DefaultHasher>>,
+) -> Vec<String> {
     let search_terms: HashSet<String> =
         query.split_whitespace().map(|s| s.to_lowercase()).collect();
 

@@ -1,18 +1,24 @@
+use bincode;
 use cuckoofilter::{self, CuckooFilter, ExportedCuckooFilter};
-use bincode::{serialize, deserialize};
 
+use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
-use std::ffi::OsString;
+use std::error::Error;
 use std::fs;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
-use std::error::Error;
+
+#[path = "src/types.rs"]
+mod types;
+
+use crate::types::Storage;
 
 fn main() -> Result<(), Box<Error>> {
     let filters = build(".".to_string())?;
-    // fs::write("filters", filters)?;
-    // Ok(())
+    let storage = Storage::from(filters);
+    fs::write("storage", storage.to_bytes()?)?;
+    Ok(())
 
     // let words = vec!["foo", "bar", "xylophone", "milagro"];
     // let mut filter = cuckoofilter::CuckooFilter::new();
@@ -26,16 +32,15 @@ fn main() -> Result<(), Box<Error>> {
     // Export the fingerprint data stored in the filter,
     // along with the filter's current length.
     // let store: ExportedCuckooFilter = filter.export();
-    // let encoded: Vec<u8> = serialize(&store).unwrap();
-    let encoded: Vec<u8> = serialize(&filters).unwrap();
-    fs::write("store", encoded);
-    Ok(())
+    // let encoded: Vec<u8> = bincode::serialize(&store).unwrap();
+    // let encoded: Vec<u8> = bincode::serialize(&filters).unwrap();
+    // fs::write("store", encoded);
+    // Ok(())
 }
 
 fn build(
     corpus_path: String,
-) -> Result<HashMap<OsString, CuckooFilter<std::collections::hash_map::DefaultHasher>>, Box<Error>>
-{
+) -> Result<HashMap<String, CuckooFilter<DefaultHasher>>, Box<Error>> {
     let posts = prepare_posts(corpus_path)?;
     generate_filters(posts)
 }
@@ -43,13 +48,12 @@ fn build(
 // Read all posts and generate Bloomfilters from them.
 #[no_mangle]
 pub fn generate_filters(
-    posts: HashMap<OsString, String>,
-) -> Result<HashMap<OsString, CuckooFilter<std::collections::hash_map::DefaultHasher>>, Box<Error>>
-{
+    posts: HashMap<String, String>,
+) -> Result<HashMap<String, CuckooFilter<DefaultHasher>>, Box<Error>> {
     // Create a dictionary of {"post name": "lowercase word set"}. split_posts =
     // {name: set(re.split("\W+", contents.lower())) for name, contents in
     // posts.items()}
-    let split_posts: HashMap<OsString, HashSet<String>> = posts
+    let split_posts: HashMap<String, HashSet<String>> = posts
         .into_iter()
         .map(|(post, content)| {
             (
@@ -79,13 +83,13 @@ pub fn generate_filters(
 }
 
 // prepares the files in the given directory to be consumed by the generator
-pub fn prepare_posts(dir: String) -> Result<HashMap<OsString, String>, Box<Error>> {
+pub fn prepare_posts(dir: String) -> Result<HashMap<PathBuf, String>, Box<Error>> {
     let paths: Vec<PathBuf> = fs::read_dir(dir)?
         .filter_map(Result::ok)
         .map(|f| f.path())
         .collect();
 
-    let mut posts: HashMap<OsString, String> = HashMap::new();
+    let mut posts: HashMap<String, String> = HashMap::new();
     for path in paths {
         if !path.is_file() {
             continue;
@@ -94,7 +98,7 @@ pub fn prepare_posts(dir: String) -> Result<HashMap<OsString, String>, Box<Error
         let mut contents = String::new();
         post.read_to_string(&mut contents)?;
         posts.insert(
-            path.file_name().ok_or("Not a file")?.to_os_string(),
+            path,
             contents,
         );
     }
