@@ -18,8 +18,11 @@ use crate::types::Storage;
 fn main() -> Result<(), Box<Error>> {
     let input_dir = env::var("INPUT_DIR")?;
     let filters = build(input_dir)?;
+    println!("Storage::from");
     let storage = Storage::from(filters);
+    println!("Write");
     fs::write("storage", storage.to_bytes()?)?;
+    println!("ok");
     Ok(())
 }
 
@@ -37,9 +40,11 @@ pub fn generate_filters(
     // Create a dictionary of {"post name": "lowercase word set"}. split_posts =
     // {name: set(re.split("\W+", contents.lower())) for name, contents in
     // posts.items()}
+    println!("Generate filters");
     let split_posts: HashMap<PathBuf, HashSet<String>> = posts
         .into_iter()
         .map(|(post, content)| {
+            println!("Generating {:?}", post);
             (
                 post,
                 content
@@ -59,28 +64,30 @@ pub fn generate_filters(
         // let mut filter = Cuckoofilter::with_capacity(words.len() as u32);
         let mut filter = cuckoofilter::CuckooFilter::new();
         for word in words {
+            println!("{}", word);
             filter.add(&word)?;
         }
         filters.insert(name, filter);
     }
+    println!("Done");
     Ok(filters)
 }
 
 fn is_markdown(entry: &DirEntry) -> bool {
-    entry
+    let isit = entry
         .file_name()
         .to_str()
         .map(|s| s.ends_with(".md"))
-        .unwrap_or(false)
+        .unwrap_or(false);
+    println!("{:?}: {}", entry, isit);
+    isit
 }
 
 // prepares the files in the given directory to be consumed by the generator
 pub fn prepare_posts(dir: String) -> Result<HashMap<PathBuf, String>, Box<Error>> {
     let mut posts: HashMap<PathBuf, String> = HashMap::new();
-    println!("Analyzing {}", dir);
     let walker = WalkDir::new(dir).into_iter();
-    for entry in walker.filter_entry(|e| is_markdown(e)) {
-        let entry = entry?;
+    for entry in walker.filter_map(Result::ok).filter(|e| is_markdown(e)) {
         println!("Analyzing {}", entry.path().display());
         let mut post = File::open(entry.path())?;
         let mut contents = String::new();
