@@ -8,6 +8,7 @@ matrix:
   allow_failures:
     - rust: nightly
   fast_finish: true
+before_script:
+  - cargo install wasm-pack
 script:
-  cargo install wasm-pack
-  make build
+  - make build
