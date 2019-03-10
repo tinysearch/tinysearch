@@ -61,8 +61,8 @@ pub fn generate_filters(
     // filters for now:
     let mut filters = HashMap::new();
     for (name, words) in split_posts {
-        // let mut filter = Cuckoofilter::with_capacity(words.len() as u32);
-        let mut filter = cuckoofilter::CuckooFilter::new();
+        // let mut filter = cuckoofilter::CuckooFilter::new();
+        let mut filter = cuckoofilter::CuckooFilter::with_capacity(550);
         for word in words {
             println!("{}", word);
             filter.add(&word)?;
