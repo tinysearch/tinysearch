@@ -20,22 +20,23 @@ use std::io::Read;
 use std::path::PathBuf;
 use std::process;
 
+mod types;
+use types::{Filters, Storage};
+
 #[derive(StructOpt, Debug)]
 struct Opt {
     #[structopt(help = "Search terms")]
     search_terms: String,
 }
 
-fn load_filters() -> CuckooFilter<DefaultHasher> {
-    let raw = fs::read("storage").unwrap();
-    let decoded: ExportedCuckooFilter = deserialize(&raw[..]).unwrap();
-    let recovered_filter = CuckooFilter::<DefaultHasher>::from(decoded);
-    recovered_filter
+fn load_filters() -> Result<Filters, Box<Error>> {
+    let bytes = fs::read("storage").unwrap();
+    Ok(Storage::from_bytes(&bytes)?.filters)
 }
 
 lazy_static! {
         // static ref FILTERS: HashMap<PathBuf, CuckooFilter<std::collections::hash_map::DefaultHasher>>> =
-        static ref FILTERS: CuckooFilter<std::collections::hash_map::DefaultHasher> = load_filters();
+        static ref FILTERS: Filters = load_filters().unwrap();
 }
 
 fn main() {
@@ -47,20 +48,17 @@ fn main() {
 }
 
 fn run(search_terms: &str) -> Result<(), Box<Error>> {
-    let matches = search(search_terms, FILTERS);
+    let matches = search(search_terms);
     println!("Found the following matches: {:#?}", matches);
     Ok(())
 }
 
 #[no_mangle]
-pub fn search(
-    query: &str,
-    filters: HashMap<PathBuf, CuckooFilter<std::collections::hash_map::DefaultHasher>>,
-) -> Vec<String> {
+pub fn search(query: &str) -> Vec<PathBuf> {
     let search_terms: HashSet<String> =
         query.split_whitespace().map(|s| s.to_lowercase()).collect();
 
-    filters
+    FILTERS
         .into_iter()
         .filter(|&(_, ref filter)| search_terms.iter().all(|term| filter.contains(term)))
         .map(|(name, _)| name)
