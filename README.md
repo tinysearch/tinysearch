@@ -12,9 +12,23 @@ The target are plain-old HTML websites commonly rendered with static site-genera
 ## Usage
 
 ```
-INPUT_DIR=../path/to/posts/ cargo cargo run -- "find these keywords"
+INPUT_DIR=path/to/posts/ cargo run -- "find these keywords"
 ```
 
+e.g.
+
+```
+INPUT_DIR=fixtures cargo run -- "hold on"
+```
+
+This will print
+
+```
+Found the following matches: [
+    "fixtures/poem3.md",
+    "fixtures/poem1.md"
+]
+```
 
 ## License
 

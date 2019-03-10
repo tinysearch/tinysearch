@@ -9,5 +9,4 @@ matrix:
     - rust: nightly
   fast_finish: true
 script:
-  - cargo build --verbose
-  - cargo test --verbose
+  INPUT_DIR=fixtures cargo run -- "hold on"
