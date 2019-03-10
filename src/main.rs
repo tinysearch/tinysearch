@@ -59,8 +59,8 @@ pub fn search(query: &str) -> Vec<PathBuf> {
         query.split_whitespace().map(|s| s.to_lowercase()).collect();
 
     FILTERS
-        .into_iter()
+        .iter()
         .filter(|&(_, ref filter)| search_terms.iter().all(|term| filter.contains(term)))
-        .map(|(name, _)| name)
+        .map(|(name, _)| name.to_owned())
         .collect()
 }
