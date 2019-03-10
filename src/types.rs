@@ -11,8 +11,8 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
-type Filters = HashMap<String, CuckooFilter<DefaultHasher>>;
-type ExportedFilters = HashMap<String, ExportedCuckooFilter>;
+type Filters = HashMap<PathBuf, CuckooFilter<DefaultHasher>>;
+type ExportedFilters = HashMap<PathBuf, ExportedCuckooFilter>;
 
 pub struct Storage {
     filters: Filters,
@@ -31,8 +31,7 @@ impl Storage {
     }
 
     fn dehydrate(&self) -> ExportedFilters {
-        self
-            .filters
+        self.filters
             .iter()
             .map(|(key, filter)| (key.clone(), filter.export()))
             .collect()

@@ -18,4 +18,4 @@ cuckoofilter = {git = "https://github.com/mre/rust-cuckoofilter" }
 bincode = "1.1.2"
 serde = "1.0.89"
 serde_derive = "1.0.89"
-
+walkdir = "2.2.7"

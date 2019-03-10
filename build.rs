@@ -1,5 +1,6 @@
 use bincode;
 use cuckoofilter::{self, CuckooFilter, ExportedCuckooFilter};
+use walkdir::{DirEntry, WalkDir};
 
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
@@ -38,9 +39,7 @@ fn main() -> Result<(), Box<Error>> {
     // Ok(())
 }
 
-fn build(
-    corpus_path: String,
-) -> Result<HashMap<String, CuckooFilter<DefaultHasher>>, Box<Error>> {
+fn build(corpus_path: String) -> Result<HashMap<PathBuf, CuckooFilter<DefaultHasher>>, Box<Error>> {
     let posts = prepare_posts(corpus_path)?;
     generate_filters(posts)
 }
@@ -48,12 +47,12 @@ fn build(
 // Read all posts and generate Bloomfilters from them.
 #[no_mangle]
 pub fn generate_filters(
-    posts: HashMap<String, String>,
-) -> Result<HashMap<String, CuckooFilter<DefaultHasher>>, Box<Error>> {
+    posts: HashMap<PathBuf, String>,
+) -> Result<HashMap<PathBuf, CuckooFilter<DefaultHasher>>, Box<Error>> {
     // Create a dictionary of {"post name": "lowercase word set"}. split_posts =
     // {name: set(re.split("\W+", contents.lower())) for name, contents in
     // posts.items()}
-    let split_posts: HashMap<String, HashSet<String>> = posts
+    let split_posts: HashMap<PathBuf, HashSet<String>> = posts
         .into_iter()
         .map(|(post, content)| {
             (
@@ -82,26 +81,26 @@ pub fn generate_filters(
     Ok(filters)
 }
 
+fn is_markdown(entry: &DirEntry) -> bool {
+    entry
+        .file_name()
+        .to_str()
+        .map(|s| s.ends_with(".md"))
+        .unwrap_or(false)
+}
+
 // prepares the files in the given directory to be consumed by the generator
 pub fn prepare_posts(dir: String) -> Result<HashMap<PathBuf, String>, Box<Error>> {
-    let paths: Vec<PathBuf> = fs::read_dir(dir)?
-        .filter_map(Result::ok)
-        .map(|f| f.path())
-        .collect();
+    let mut posts: HashMap<PathBuf, String> = HashMap::new();
+    let walker = WalkDir::new(dir).into_iter();
+    for entry in walker.filter_entry(|e| is_markdown(e)) {
+        let entry = entry?;
+        println!("Analyzing {}", entry.path().display());
 
-    let mut posts: HashMap<String, String> = HashMap::new();
-    for path in paths {
-        if !path.is_file() {
-            continue;
-        }
-        let mut post = File::open(&path)?;
+        let mut post = File::open(entry.path())?;
         let mut contents = String::new();
         post.read_to_string(&mut contents)?;
-        posts.insert(
-            path,
-            contents,
-        );
+        posts.insert(entry.into_path(), contents);
     }
-
     Ok(posts)
 }

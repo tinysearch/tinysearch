@@ -34,7 +34,7 @@ fn load_filters() -> CuckooFilter<DefaultHasher> {
 }
 
 lazy_static! {
-        // static ref FILTERS: HashMap<String, CuckooFilter<std::collections::hash_map::DefaultHasher>>> =
+        // static ref FILTERS: HashMap<PathBuf, CuckooFilter<std::collections::hash_map::DefaultHasher>>> =
         static ref FILTERS: CuckooFilter<std::collections::hash_map::DefaultHasher> = load_filters();
 }
 
@@ -55,7 +55,7 @@ fn run(search_terms: &str) -> Result<(), Box<Error>> {
 #[no_mangle]
 pub fn search(
     query: &str,
-    filters: HashMap<String, CuckooFilter<std::collections::hash_map::DefaultHasher>>,
+    filters: HashMap<PathBuf, CuckooFilter<std::collections::hash_map::DefaultHasher>>,
 ) -> Vec<String> {
     let search_terms: HashSet<String> =
         query.split_whitespace().map(|s| s.to_lowercase()).collect();
