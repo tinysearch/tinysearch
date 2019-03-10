@@ -9,4 +9,4 @@ matrix:
     - rust: nightly
   fast_finish: true
 script:
-  INPUT_DIR=fixtures cargo run -- "hold on"
+  make build

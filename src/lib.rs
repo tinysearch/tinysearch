@@ -1,6 +1,7 @@
-extern crate structopt;
 #[macro_use]
 extern crate lazy_static;
+
+use wasm_bindgen::prelude::*;
 
 use structopt::StructOpt;
 
@@ -8,7 +9,6 @@ use std::collections::HashSet;
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
-use std::process;
 
 mod types;
 use types::{Filters, Storage};
@@ -29,28 +29,15 @@ lazy_static! {
         static ref FILTERS: Filters = load_filters().unwrap();
 }
 
-fn main() {
-    let opt = Opt::from_args();
-    if let Err(err) = run(&opt.search_terms) {
-        eprintln!("Command failed:\n{}\n", err);
-        process::exit(1);
-    }
-}
-
-fn run(search_terms: &str) -> Result<(), Box<Error>> {
-    let matches = search(search_terms);
-    println!("Found the following matches: {:#?}", matches);
-    Ok(())
-}
-
-#[no_mangle]
-pub fn search(query: &str) -> Vec<PathBuf> {
+#[wasm_bindgen]
+pub fn search(query: &str) -> String {
     let search_terms: HashSet<String> =
         query.split_whitespace().map(|s| s.to_lowercase()).collect();
 
-    FILTERS
+    let matches: Vec<PathBuf> = FILTERS
         .iter()
         .filter(|&(_, ref filter)| search_terms.iter().all(|term| filter.contains(term)))
         .map(|(name, _)| name.to_owned())
-        .collect()
+        .collect();
+    serde_json::to_string(&matches).unwrap_or_else(|_| "{}".to_string())
 }

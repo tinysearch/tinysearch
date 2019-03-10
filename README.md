@@ -11,23 +11,10 @@ The target are plain-old HTML websites commonly rendered with static site-genera
 
 ## Usage
 
-```
-INPUT_DIR=path/to/posts/ cargo run -- "find these keywords"
-```
-
-e.g.
+To generate a JavaScript bundle, run 
 
 ```
-INPUT_DIR=fixtures cargo run -- "hold on"
-```
-
-This will print
-
-```
-Found the following matches: [
-    "fixtures/poem3.md",
-    "fixtures/poem1.md"
-]
+make build
 ```
 
 ## License
