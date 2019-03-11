@@ -5,9 +5,10 @@
 This is a Rust implementation of ["Writing a full-text search engine using Bloom filters"](https://www.stavros.io/posts/bloom-filter-search-engine/).
 
 I'm planning to use this on [my homepage](http://matthias-endler.de/) as a way to search through articles.
-The idea is to run all posts on there through tinysearch, which will generate a small WASM library that can be shipped to clients. This way, we get a tiny, fast full-text search written in Rust that also works offline. :blush:
+The idea is to run all posts on there through tinysearch, which will generate a small WASM library that can be shipped to clients. This way, we get a tiny, fast full-text search engine written in Rust that works offline. :blush:
 
-The target are plain-old HTML websites commonly rendered with static site-generators like [Jekyll](https://jekyllrb.com/), [Hugo](https://gohugo.io/), [zola](https://www.getzola.org/), or [Cobalt](https://github.com/cobalt-org/cobalt.rs).
+The target are static websites. `tinysearch` can be part integrated into the build process of generators like [Jekyll](https://jekyllrb.com/), [Hugo](https://gohugo.io/), [zola](https://www.getzola.org/), or [Cobalt](https://github.com/cobalt-org/cobalt.rs).
+
 
 ## Usage
 
