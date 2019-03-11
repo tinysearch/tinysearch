@@ -8,5 +8,7 @@ matrix:
   allow_failures:
     - rust: nightly
   fast_finish: true
+before_script:
+  - cargo install wasm-pack || true
 script:
-  INPUT_DIR=fixtures cargo run -- "hold on"
+  - make build
