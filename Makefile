@@ -1,10 +1,10 @@
 .PHONY: index
 index:
-	INPUT_DIR=$(INPUT_DIR) cargo build	
+	cargo build	
 
 .PHONY: pack
 pack:
-	INPUT_DIR=$(INPUT_DIR) wasm-pack build --target web
+	wasm-pack build --target web
 
 .PHONY: build
 build: index pack
