@@ -9,6 +9,7 @@ matrix:
     - rust: nightly
   fast_finish: true
 before_script:
-  - cargo install wasm-pack || true
+  - cargo install --force wasm-pack || true
+  - wasm-pack --version
 script:
   - make build
