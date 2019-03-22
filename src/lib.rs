@@ -20,17 +20,36 @@ struct Opt {
 }
 
 fn load_filters() -> Result<Filters, Box<Error>> {
-    let bytes = fs::read("storage").unwrap();
-    Ok(Storage::from_bytes(&bytes)?.filters)
+    let bytes = include_bytes!("../storage");
+    Ok(Storage::from_bytes(bytes)?.filters)
 }
 
 lazy_static! {
-        // static ref FILTERS: HashMap<PathBuf, CuckooFilter<std::collections::hash_map::DefaultHasher>>> =
-        static ref FILTERS: Filters = load_filters().unwrap();
+    static ref FILTERS: Filters = load_filters().unwrap();
+}
+
+use wasm_bindgen::prelude::*;
+
+// Called when the wasm module is instantiated
+#[wasm_bindgen(start)]
+pub fn main() -> Result<(), JsValue> {
+    // Use `web_sys`'s global `window` function to get a handle on the global
+    // window object.
+    let window = web_sys::window().expect("no global `window` exists");
+    let document = window.document().expect("should have a document on window");
+    let body = document.body().expect("document should have a body");
+
+    // Manufacture the element we're gonna append
+    let val = document.create_element("p")?;
+    val.set_inner_html("Hello from Rust!");
+
+    body.append_child(&val)?;
+
+    Ok(())
 }
 
 #[wasm_bindgen]
-pub fn search(query: &str) -> String {
+pub fn search(query: String) -> String {
     let search_terms: HashSet<String> =
         query.split_whitespace().map(|s| s.to_lowercase()).collect();
 
@@ -39,5 +58,8 @@ pub fn search(query: &str) -> String {
         .filter(|&(_, ref filter)| search_terms.iter().all(|term| filter.contains(term)))
         .map(|(name, _)| name.to_owned())
         .collect();
+    // String::from(matches.len())
+    // 3.to_string()
+    // String::from("hello")
     serde_json::to_string(&matches).unwrap_or_else(|_| "{}".to_string())
 }

@@ -17,6 +17,11 @@ To generate a JavaScript bundle, run
 make build
 ```
 
+## Maintainers
+
+* Matthias Endler (@mre)
+* Jorge-Luis Betancourt (@jorgelbg)
+
 ## License
 
 tinysearch is licensed under either of
