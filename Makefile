@@ -4,7 +4,7 @@ index:
 
 .PHONY: pack
 pack:
-	wasm-pack build --target web
+	INPUT_DIR=$(INPUT_DIR) wasm-pack build --target web
 
 .PHONY: build
 build: index pack
