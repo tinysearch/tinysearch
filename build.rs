@@ -61,7 +61,6 @@ pub fn generate_filters(
     // filters for now:
     let mut filters = HashMap::new();
     for (name, words) in split_posts {
-        // let mut filter = cuckoofilter::CuckooFilter::new();
         let mut filter = cuckoofilter::CuckooFilter::with_capacity(550);
         for word in words {
             println!("{}", word);
@@ -74,13 +73,11 @@ pub fn generate_filters(
 }
 
 fn is_markdown(entry: &DirEntry) -> bool {
-    let isit = entry
+    entry
         .file_name()
         .to_str()
         .map(|s| s.ends_with(".md"))
-        .unwrap_or(false);
-    println!("{:?}: {}", entry, isit);
-    isit
+        .unwrap_or(false)
 }
 
 // prepares the files in the given directory to be consumed by the generator

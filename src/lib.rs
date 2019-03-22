@@ -1,13 +1,10 @@
 #[macro_use]
 extern crate lazy_static;
 
-use wasm_bindgen::prelude::*;
-
 use structopt::StructOpt;
 
 use std::collections::HashSet;
 use std::error::Error;
-use std::fs;
 use std::path::PathBuf;
 
 mod types;
