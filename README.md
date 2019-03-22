@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/mre/tinysearch.svg?branch=master)](https://travis-ci.org/mre/tinysearch)
 
-This is a Rust implementation of ["Writing a full-text search engine using Bloom filters"](https://www.stavros.io/posts/bloom-filter-search-engine/).
+This is a Rust/WASM implementation of ["Writing a full-text search engine using Bloom filters"](https://www.stavros.io/posts/bloom-filter-search-engine/).
 
 I'm planning to use this on [my homepage](http://matthias-endler.de/) as a way to search through articles.
 The idea is to run all posts on there through tinysearch, which will generate a small WASM library that can be shipped to clients. This way, we get a tiny, fast full-text search engine written in Rust that works offline. :blush:
