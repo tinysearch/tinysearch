@@ -15,8 +15,12 @@ The target use-case is static websites. `tinysearch` could be integrated into th
 To generate a JavaScript bundle, run 
 
 ```
-make build
+INPUT_DIR=/path/to/blog/posts make build
 ```
+
+This will recursively go through all text files (".txt" and ".md") in
+`/path/to/blog/posts` and create a static index from them. Afterwards, it will
+create the WASM file and the JavaScript glue code thanks to [wasm-pack].
 
 ## Maintainers
 
@@ -32,3 +36,5 @@ tinysearch is licensed under either of
 
 at your option.
 
+
+[wasm-pack]: https://github.com/rustwasm/wasm-pack
