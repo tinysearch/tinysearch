@@ -1,8 +1,6 @@
 #[macro_use]
 extern crate lazy_static;
 
-use structopt::StructOpt;
-
 use std::collections::HashSet;
 use std::error::Error;
 use std::path::PathBuf;
@@ -12,12 +10,6 @@ use types::{Filters, Storage};
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
-
-#[derive(StructOpt, Debug)]
-struct Opt {
-    #[structopt(help = "Search terms")]
-    search_terms: String,
-}
 
 fn load_filters() -> Result<Filters, Box<Error>> {
     let bytes = include_bytes!("../storage");

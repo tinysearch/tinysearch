@@ -21,7 +21,9 @@ brew install binaryen
 
 "Remove web-sys as we don't have to bind to the DOM." 152858
 
-clean up other dependencies
+clean up other dependencies that I added during testing
+
+"remove structopt" 152910
 
 
 
