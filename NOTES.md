@@ -19,7 +19,11 @@ brew install binaryen
 
 "wasm-opt -Oz" 154413
 
-https://rustwasm.github.io/docs/book/reference/code-size.html
+"Remove web-sys as we don't have to bind to the DOM." 152858
+
+clean up other dependencies
+
+
 
 # References
 

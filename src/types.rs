@@ -45,6 +45,4 @@ impl Storage {
             .map(|(key, exported)| (key.clone(), CuckooFilter::<DefaultHasher>::from(exported)))
             .collect()
     }
-    //     let decoded: ExportedCuckooFilter = deserialize(&raw[..]).unwrap();
-    // let recovered_filter = CuckooFilter::<DefaultHasher>::from(decoded);
 }
