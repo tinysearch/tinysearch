@@ -28,7 +28,7 @@
         // Also note that the promise, when resolved, yields the wasm module's
         // exports which is the same as importing the `*_bg` module in other
         // modes
-        await init('./pkg/tinysearch_bg.wasm');
+        await init('./pkg/tinysearch_bg_opt.wasm');
 
         // And afterwards we can use all the functionality defined in wasm.
         const result = search("rust");
@@ -37,6 +37,19 @@
 
       run();
     </script>
+
+  <script>
+    function myFunction() {
+      let value = document.getElementById("demo").value;
+      console.log(value);
+      const result = search(value);
+      console.log(result);
+    }
+  </script>
+
+  <input type="text" id="demo" onkeyup="myFunction()">
+
+
 </body>
 
 </html>

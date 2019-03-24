@@ -10,6 +10,9 @@ use std::path::PathBuf;
 mod types;
 use types::{Filters, Storage};
 
+#[global_allocator]
+static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+
 #[derive(StructOpt, Debug)]
 struct Opt {
     #[structopt(help = "Search terms")]
@@ -55,8 +58,5 @@ pub fn search(query: String) -> String {
         .filter(|&(_, ref filter)| search_terms.iter().all(|term| filter.contains(term)))
         .map(|(name, _)| name.to_owned())
         .collect();
-    // String::from(matches.len())
-    // 3.to_string()
-    // String::from("hello")
     serde_json::to_string(&matches).unwrap_or_else(|_| "{}".to_string())
 }
