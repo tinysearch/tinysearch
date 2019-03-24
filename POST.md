@@ -1,3 +1,7 @@
+Whoops! I shipped some Rust to your Browser
+- How I wrote a tiny offline search engine with WASM and Rust
+
+
 This is still the wild west:
 unstable features, nightly rust, documentation gets outdated almost every day.
 I love it!

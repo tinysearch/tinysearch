@@ -26,6 +26,21 @@ clean up other dependencies that I added during testing
 "remove structopt" 152910
 
 
+```
+twiggy top -n 20 pkg/tinysearch_bg.wasm
+ Shallow Bytes │ Shallow % │ Item
+───────────────┼───────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────
+         79256 ┊    44.37% ┊ data[0]
+         13886 ┊     7.77% ┊ "function names" subsection
+          7289 ┊     4.08% ┊ data[1]
+          6888 ┊     3.86% ┊ core::fmt::float::float_to_decimal_common_shortest::hdd201d50dffd0509
+          6080 ┊     3.40% ┊ core::fmt::float::float_to_decimal_common_exact::hcb5f56a54ebe7361
+          5972 ┊     3.34% ┊ std::sync::once::Once::call_once::{{closure}}::ha520deb2caa7e231
+          5869 ┊     3.29% ┊ search
+```
+
+didn't help:
+wasm-snip --snip-rust-fmt-code --snip-rust-panicking-code -o pkg/tinysearch_bg_snip.wasm pkg/tinysearch_bg_opt.wasm
 
 # References
 
