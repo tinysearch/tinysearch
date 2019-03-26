@@ -29,7 +29,7 @@ pub fn search(query: String) -> String {
 
     let matches: Vec<PathBuf> = FILTERS
         .iter()
-        .filter(|&(_, ref filter)| search_terms.iter().all(|term| filter.contains(term)))
+        .filter(|&(_, ref filter)| search_terms.iter().all(|term| filter.check(term)))
         .map(|(name, _)| name.to_owned())
         .collect();
     serde_json::to_string(&matches).unwrap_or_else(|_| "{}".to_string())

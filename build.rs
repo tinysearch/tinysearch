@@ -1,5 +1,5 @@
-use cuckoofilter::{self, CuckooFilter};
 use walkdir::{DirEntry, WalkDir};
+use bloomfilter::Bloom;
 
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
@@ -18,28 +18,24 @@ use crate::types::Storage;
 fn main() -> Result<(), Box<Error>> {
     let input_dir = env::var("INPUT_DIR")?;
     let filters = build(input_dir)?;
-    println!("Storage::from");
     let storage = Storage::from(filters);
-    println!("Write");
     fs::write("storage", storage.to_bytes()?)?;
-    println!("ok");
     Ok(())
 }
 
-fn build(corpus_path: String) -> Result<HashMap<PathBuf, CuckooFilter<DefaultHasher>>, Box<Error>> {
+fn build(corpus_path: String) -> Result<HashMap<PathBuf, Bloom>, Box<Error>> {
     println!("{}", corpus_path);
     let posts = prepare_posts(corpus_path)?;
     generate_filters(posts)
 }
 
 // Read all posts and generate Bloomfilters from them.
+// Create a dictionary of {"post name": "lowercase word set"}. 
+// split_posts = {name: set(re.split("\W+", contents.lower())) for name, contents in posts.items()}
 #[no_mangle]
 pub fn generate_filters(
     posts: HashMap<PathBuf, String>,
-) -> Result<HashMap<PathBuf, CuckooFilter<DefaultHasher>>, Box<Error>> {
-    // Create a dictionary of {"post name": "lowercase word set"}. split_posts =
-    // {name: set(re.split("\W+", contents.lower())) for name, contents in
-    // posts.items()}
+) -> Result<HashMap<PathBuf, Bloom>, Box<Error>> {
     println!("Generate filters");
     let split_posts: HashMap<PathBuf, HashSet<String>> = posts
         .into_iter()
@@ -61,10 +57,10 @@ pub fn generate_filters(
     // filters for now:
     let mut filters = HashMap::new();
     for (name, words) in split_posts {
-        let mut filter = cuckoofilter::CuckooFilter::with_capacity(550);
+        let mut filter = Bloom::new_for_fp_rate(1000, 0.05);
         for word in words {
             println!("{}", word);
-            filter.add(&word)?;
+            filter.set(&word);
         }
         filters.insert(name, filter);
     }
