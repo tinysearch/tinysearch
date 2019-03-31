@@ -74,6 +74,66 @@ twiggy top -n 20 pkg/tinysearch_bg.wasm
           5869 ┊     3.29% ┊ search
 ```
 
+
+## Analyzing the dehydration part
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, BincodeError> {
+        let decoded = bincode::deserialize(bytes)?;
+        Ok(Storage {
+            filters: Storage::hydrate(decoded),
+        })
+    }
+
+
+    results in
+
+twiggy top -n 10 dbg/tinysearch_bg.wasm
+ Shallow Bytes │ Shallow % │ Item
+───────────────┼───────────┼───────────────────────────────────────────────────────────────────────────────────────────────
+         36040 ┊    25.62% ┊ data[0]
+         14038 ┊     9.98% ┊ "function names" subsection
+         10116 ┊     7.19% ┊ std::sync::once::Once::call_once::{{closure}}::h58fa0daaf41a010a
+          7313 ┊     5.20% ┊ data[1]
+          6888 ┊     4.90% ┊ core::fmt::float::float_to_decimal_common_shortest::hdd201d50dffd0509
+          6226 ┊     4.43% ┊ search
+          6080 ┊     4.32% ┊ core::fmt::float::float_to_decimal_common_exact::hcb5f56a54ebe7361
+          4879 ┊     3.47% ┊ core::num::flt2dec::strategy::dragon::mul_pow10::h1f6e32d33228d12a
+          2734 ┊     1.94% ┊ <serde_json::error::Error as serde::ser::Error>::custom::ha35c72a3e1216b8f
+          1722 ┊     1.22% ┊ <std::path::Components<'a> as core::iter::traits::iterator::Iterator>::next::hdc7c6ef507797acc
+         44531 ┊    31.66% ┊ ... and 464 more.
+        140567 ┊    99.93% ┊ Σ [474 Total Rows]
+
+
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, BincodeError> {
+        let decoded = bincode::deserialize(bytes)?;
+        Ok(Storage {
+            filters: Filters::new()
+        })
+    }
+
+    results in
+
+    twiggy top -n 10 dbg/tinysearch_bg.wasm
+ Shallow Bytes │ Shallow % │ Item
+───────────────┼───────────┼──────────────────────────────────────────────────────────────────────────────────────
+         30839 ┊    40.79% ┊ data[0]
+          7108 ┊     9.40% ┊ "function names" subsection
+          6282 ┊     8.31% ┊ search
+          5689 ┊     7.52% ┊ data[1]
+          2727 ┊     3.61% ┊ <serde_json::error::Error as serde::ser::Error>::custom::ha35c72a3e1216b8f
+          1437 ┊     1.90% ┊ std::sync::once::Once::call_inner::h35f0eda9cf9eca08
+          1428 ┊     1.89% ┊ <std::sys_common::poison::PoisonError<T> as core::fmt::Debug>::fmt::h3c1beed6d984aee3
+          1217 ┊     1.61% ┊ data[2]
+          1182 ┊     1.56% ┊ core::fmt::write::hd4bdd4af2be576da
+          1109 ┊     1.47% ┊ core::str::slice_error_fail::ha73ff2fecc9e819b
+         16497 ┊    21.82% ┊ ... and 248 more.
+         75515 ┊    99.88% ┊ Σ [258 Total Rows]
+
+
+
+
+
+
 didn't help:
 wasm-snip --snip-rust-fmt-code --snip-rust-panicking-code -o pkg/tinysearch_bg_snip.wasm pkg/tinysearch_bg_opt.wasm
 
@@ -98,6 +158,7 @@ The message is: the web is for EVERYONE, not just JavaScript programmers.
 What was very hard just a two years ago is easy now: shipping code in any language to every browser.
 We should make better use of it.
 
+[GRAPH SHOWING SPACE USAGE WITH DIFFERENT DATASTRUCTURES]
 
 ## Future steps
 
