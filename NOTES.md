@@ -24,8 +24,6 @@ It's not faster, but I'm more familiar with Rust than JavaScript. That's why I d
 Tried https://github.com/jedisct1/rust-bloom-filter
 first, but it didn't implement serialize/deserialize
 
-Manually serializing using the [from_existing](https://docs.rs/bloomfilter/0.0.12/bloomfilter/struct.Bloom.html#method.from_existing) method also didn't work, as it needed the `sip_keys`, which are only known at 
-
 
 cuckoofilter:
 ~/C/p/tinysearch ❯❯❯ l storage
@@ -183,8 +181,6 @@ Index word tree
     wo
     wor
     word
-
-Remove the hyphen between words
 
 Find more gems at
 https://journal.valeriansaliou.name/announcing-sonic-a-super-light-alternative-to-elasticsearch/

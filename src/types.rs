@@ -1,23 +1,13 @@
 use bincode::Error as BincodeError;
-use bloomfilter::Bloom;
-use serde::{Deserialize, Serialize};
+use cuckoofilter::{self, CuckooFilter, ExportedCuckooFilter};
+use std::convert::From;
 
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
-use std::convert::From;
 use std::path::PathBuf;
 
-#[derive(Serialize, Deserialize)]
-struct ExportedBloomFilter {
-    bitmap: Vec<u8>,
-    bitmap_bits: u64,
-    k_num: u32,
-    sip_keys: [(u64, u64); 2],
-}
-
-
-type ExportedBloomFilters = HashMap<PathBuf, ExportedBloomFilter>;
-pub type Filters = HashMap<PathBuf, Bloom>;
+pub type Filters = HashMap<PathBuf, CuckooFilter<DefaultHasher>>;
+type ExportedFilters = HashMap<PathBuf, ExportedCuckooFilter>;
 
 pub struct Storage {
     pub filters: Filters,
@@ -36,43 +26,23 @@ impl Storage {
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, BincodeError> {
-        let decoded = bincode::deserialize(bytes)?;
+        let decoded: ExportedFilters = bincode::deserialize(bytes)?;
         Ok(Storage {
             filters: Storage::hydrate(decoded),
         })
     }
 
-    fn dehydrate(&self) -> ExportedBloomFilters {
+    fn dehydrate(&self) -> ExportedFilters {
         self.filters
             .iter()
-            .map(|(key, filter)| {
-                (
-                    key.clone(),
-                    ExportedBloomFilter {
-                        bitmap: filter.bitmap(),
-                        bitmap_bits: filter.number_of_bits(),
-                        k_num: filter.number_of_hash_functions(),
-                        sip_keys: filter.sip_keys(),
-                    },
-                )
-            })
+            .map(|(key, filter)| (key.clone(), filter.export()))
             .collect()
     }
 
-    fn hydrate(exported_filters: ExportedBloomFilters) -> Filters {
+    fn hydrate(exported_filters: ExportedFilters) -> Filters {
         exported_filters
             .into_iter()
-            .map(|(key, exported)| {
-                (
-                    key.clone(),
-                    Bloom::from_existing(
-                        &exported.bitmap,
-                        exported.bitmap_bits,
-                        exported.k_num,
-                        exported.sip_keys,
-                    ),
-                )
-            })
+            .map(|(key, exported)| (key.clone(), CuckooFilter::<DefaultHasher>::from(exported)))
             .collect()
     }
 }
