@@ -158,7 +158,19 @@ The message is: the web is for EVERYONE, not just JavaScript programmers.
 What was very hard just a two years ago is easy now: shipping code in any language to every browser.
 We should make better use of it.
 
+
+Now the challenge becomes optimizing the index datastructure
+
+* cuckoofilter, all posts 45221 bytes
+
 [GRAPH SHOWING SPACE USAGE WITH DIFFERENT DATASTRUCTURES]
+
+## Lessons learned
+
+A lot of people dismiss WebAssembly as a toy technology.
+This cannot be further from the truth.
+WebAssembly will revolutionize the way we build web technology.
+Whenever there is a new technology, ask yourself: "What changed? What is possible now?".
 
 ## Future steps
 
