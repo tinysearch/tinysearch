@@ -12,4 +12,4 @@ before_script:
   - cargo install --force wasm-pack || true
   - wasm-pack --version
 script:
-  - make build
+  - INPUT_DIR=fixtures make build
