@@ -6,8 +6,8 @@ index:
 pack:
 	wasm-pack build --target web --release
 
-.PHONY: top
-top:
+.PHONY: profile
+profile:
 	wasm-pack build --target web
 	twiggy top -n 20 pkg/tinysearch_bg.wasm
 
