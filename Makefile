@@ -19,7 +19,7 @@ opt:
 .PHONY: build
 build: index pack opt
 
-.PHONY: run
-run:
+.PHONY: run open
+run open:
 	open index.html
 	python3 -m http.server
