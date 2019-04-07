@@ -1,6 +1,6 @@
 .PHONY: index
 index:
-	cargo build	
+	cargo build -vv
 
 .PHONY: pack
 pack:
@@ -21,4 +21,5 @@ build: index pack opt
 
 .PHONY: run
 run:
-	python3 -m http.server	
+	open index.html
+	python3 -m http.server

@@ -8,6 +8,9 @@ use std::path::PathBuf;
 mod types;
 use types::{Filters, Storage};
 
+mod filter;
+use crate::filter::valid;
+
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
@@ -20,6 +23,19 @@ lazy_static! {
     static ref FILTERS: Filters = load_filters().unwrap();
 }
 
+fn load_stopwords() -> Result<String, Box<Error>> {
+    let bytes = include_bytes!("../stopwords");
+    Ok(String::from_utf8(bytes.to_vec())?)
+}
+
+lazy_static! {
+    static ref STOPWORDS: HashSet<String> = load_stopwords()
+        .unwrap()
+        .split_whitespace()
+        .map(String::from)
+        .collect();
+}
+
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -29,8 +45,16 @@ pub fn search(query: String) -> String {
 
     let matches: Vec<PathBuf> = FILTERS
         .iter()
-        .filter(|&(_, ref filter)| search_terms.iter().all(|term| filter.contains(term)))
+        .filter(|&(_, ref filter)| {
+            search_terms
+                .iter()
+                .filter(|term| !STOPWORDS.contains(*term))
+                .filter(|term| filter::valid(term))
+                .all(|term| filter.contains(&term.to_lowercase()))
+        })
         .map(|(name, _)| name.to_owned())
         .collect();
-    serde_json::to_string(&matches).unwrap_or_else(|_| "{}".to_string())
+    let res: Vec<String> = matches.iter().map(|p| p.to_string_lossy().to_string()).collect();
+    vec!["[", &res.join(","), "]"].join("")
+    // serde_json::to_string(&matches).unwrap_or_else(|_| "{}".to_string())
 }

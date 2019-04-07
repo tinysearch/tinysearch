@@ -13,6 +13,10 @@ use std::path::PathBuf;
 #[path = "src/types.rs"]
 mod types;
 
+#[path = "src/filter.rs"]
+mod filter;
+
+use crate::filter::valid;
 use crate::types::Storage;
 
 fn main() -> Result<(), Box<Error>> {
@@ -41,6 +45,15 @@ pub fn generate_filters(
     // {name: set(re.split("\W+", contents.lower())) for name, contents in
     // posts.items()}
     println!("Generate filters");
+
+    let bytes = include_bytes!("stopwords");
+    let stopwords = String::from_utf8(bytes.to_vec())?;
+    let STOPWORDS: HashSet<String> = stopwords
+        .split_whitespace()
+        .map(String::from)
+        .collect();
+
+
     let split_posts: HashMap<PathBuf, HashSet<String>> = posts
         .into_iter()
         .map(|(post, content)| {
@@ -49,7 +62,9 @@ pub fn generate_filters(
                 post,
                 content
                     .split_whitespace()
+                    .filter(|word| filter::valid(word))
                     .map(str::to_lowercase)
+                    .filter(|word| !STOPWORDS.contains(word))
                     .collect::<HashSet<String>>(),
             )
         })
@@ -61,7 +76,7 @@ pub fn generate_filters(
     // filters for now:
     let mut filters = HashMap::new();
     for (name, words) in split_posts {
-        let mut filter = cuckoofilter::CuckooFilter::with_capacity(550);
+        let mut filter = cuckoofilter::CuckooFilter::with_capacity(words.len());
         for word in words {
             println!("{}", word);
             filter.add(&word)?;
