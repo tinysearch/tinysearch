@@ -35,7 +35,7 @@ lazy_static! {
 }
 
 #[wasm_bindgen]
-pub fn search(query: String) -> JsValue {
+pub fn search(query: String, num_results: usize) -> JsValue {
     let search_terms: HashSet<String> =
         query.split_whitespace().map(|s| s.to_lowercase()).collect();
 
@@ -48,6 +48,7 @@ pub fn search(query: String) -> JsValue {
                 .all(|term| filter.contains(&term.to_lowercase()))
         })
         .map(|(name, _)| name.to_owned())
+        .take(num_results)
         .collect();
     JsValue::from_serde(&matches).unwrap()
 }
