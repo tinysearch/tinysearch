@@ -27,8 +27,8 @@ If you're using macOS and homebrew you can install it with:
 brew install binaryen
 ```
 
-Otherwise you can use you OS package manager, or download the binary
-from the [release pages](https://github.com/WebAssembly/binaryen/releases).
+Alternatively you can download the binary
+from the [release page](https://github.com/WebAssembly/binaryen/releases) or use your OS package manager.
 
 ## Usage
 
