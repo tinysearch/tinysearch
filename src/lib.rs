@@ -5,6 +5,8 @@ use std::collections::HashSet;
 use std::error::Error;
 use std::path::PathBuf;
 
+use wasm_bindgen::JsValue;
+
 mod types;
 use types::{Filters, Storage};
 
@@ -36,7 +38,7 @@ lazy_static! {
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-pub fn search(query: String) -> String {
+pub fn search(query: String) -> JsValue {
     let search_terms: HashSet<String> =
         query.split_whitespace().map(|s| s.to_lowercase()).collect();
 
@@ -56,5 +58,6 @@ pub fn search(query: String) -> String {
     //     .map(|s| format!("\"{}\"", s))
     //     .collect();
     // format!("[{}]", res.join(","))
-    serde_json::to_string(&matches).unwrap_or_else(|_| "{}".to_string())
+    // serde_json::to_string(&matches).unwrap_or_else(|_| "{}".to_string())
+    JsValue::from_serde(&matches).unwrap()
 }
