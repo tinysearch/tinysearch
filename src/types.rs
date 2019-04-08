@@ -3,7 +3,7 @@ use cuckoofilter::{self, CuckooFilter, ExportedCuckooFilter};
 use std::convert::From;
 
 use std::collections::hash_map::DefaultHasher;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 pub type Filters = HashMap<PathBuf, CuckooFilter<DefaultHasher>>;
@@ -16,6 +16,18 @@ pub struct Storage {
 impl From<Filters> for Storage {
     fn from(filters: Filters) -> Self {
         Storage { filters }
+    }
+}
+
+pub trait Score {
+    fn score(&self, terms: &HashSet<String>) -> u32;
+}
+
+// the score is the number of terms from the query that contained in the current
+// filter
+impl Score for CuckooFilter<DefaultHasher> {
+    fn score(&self, terms: &HashSet<String>) -> u32 {
+        return terms.iter().filter(|term| self.contains(&term.to_lowercase())).count() as u32;
     }
 }
 

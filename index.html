@@ -32,7 +32,7 @@
 
         // And afterwards we can use all the functionality defined in wasm.
         const result = search("rust");
-        console.log(result);
+        console.log(result, 10);
       }
 
       run();
@@ -42,7 +42,7 @@
     function myFunction() {
       let value = document.getElementById("demo").value;
       console.log(value);
-      const result = search(value);
+      const result = search(value, 10);
       console.log(result);
     }
   </script>
