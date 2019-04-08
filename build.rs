@@ -33,6 +33,11 @@ fn build(corpus_path: String) -> Result<HashMap<PathBuf, CuckooFilter<DefaultHas
     generate_filters(posts)
 }
 
+/// Remove non-ascii characters from string
+fn cleanup(s: String) -> String {
+    s.replace(|c: char| !c.is_alphabetic(), " ")
+}
+
 // Read all posts and generate Bloomfilters from them.
 #[no_mangle]
 pub fn generate_filters(
@@ -53,7 +58,7 @@ pub fn generate_filters(
             println!("Generating {:?}", post);
             (
                 post,
-                strip_markdown(&content)
+                cleanup(strip_markdown(&content))
                     .split_whitespace()
                     .map(str::to_lowercase)
                     .filter(|word| !STOPWORDS.contains(word))
@@ -68,7 +73,9 @@ pub fn generate_filters(
     // filters for now:
     let mut filters = HashMap::new();
     for (name, words) in split_posts {
-        let mut filter = cuckoofilter::CuckooFilter::with_capacity(words.len());
+        // Adding some more padding to the capacity because sometimes there is an error
+        // about not having enough space. Not sure why that happens, though.
+        let mut filter = cuckoofilter::CuckooFilter::with_capacity(words.len() + 4);
         for word in words {
             println!("{}", word);
             filter.add(&word)?;
