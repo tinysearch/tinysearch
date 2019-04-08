@@ -4,8 +4,7 @@ extern crate lazy_static;
 use std::collections::HashSet;
 use std::error::Error;
 use std::path::PathBuf;
-
-use wasm_bindgen::JsValue;
+use wasm_bindgen::prelude::*;
 
 mod types;
 use types::{Filters, Storage};
@@ -35,8 +34,6 @@ lazy_static! {
         .collect();
 }
 
-use wasm_bindgen::prelude::*;
-
 #[wasm_bindgen]
 pub fn search(query: String) -> JsValue {
     let search_terms: HashSet<String> =
@@ -52,12 +49,5 @@ pub fn search(query: String) -> JsValue {
         })
         .map(|(name, _)| name.to_owned())
         .collect();
-    // let res: Vec<String> = matches
-    //     .iter()
-    //     .map(|p| p.to_string_lossy().to_string())
-    //     .map(|s| format!("\"{}\"", s))
-    //     .collect();
-    // format!("[{}]", res.join(","))
-    // serde_json::to_string(&matches).unwrap_or_else(|_| "{}".to_string())
     JsValue::from_serde(&matches).unwrap()
 }
