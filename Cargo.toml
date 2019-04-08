@@ -14,11 +14,13 @@ bincode = "1.1.2"
 serde = "1.0.89"
 wee_alloc = "0.4.3"
 wasm-bindgen = "0.2.40"
+serde_json = "1.0.39"
 
 [build-dependencies]
 bincode = "1.1.2"
 cuckoofilter = {git = "https://github.com/mre/rust-cuckoofilter" }
 walkdir = "2.2.7"
+strip_markdown = "0.1.0"
 
 
 [profile.release]

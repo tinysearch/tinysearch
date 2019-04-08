@@ -9,14 +9,11 @@ use std::fs;
 use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
+use strip_markdown::strip_markdown;
 
 #[path = "src/types.rs"]
 mod types;
 
-#[path = "src/filter.rs"]
-mod filter;
-
-use crate::filter::valid;
 use crate::types::Storage;
 
 fn main() -> Result<(), Box<Error>> {
@@ -48,11 +45,7 @@ pub fn generate_filters(
 
     let bytes = include_bytes!("stopwords");
     let stopwords = String::from_utf8(bytes.to_vec())?;
-    let STOPWORDS: HashSet<String> = stopwords
-        .split_whitespace()
-        .map(String::from)
-        .collect();
-
+    let STOPWORDS: HashSet<String> = stopwords.split_whitespace().map(String::from).collect();
 
     let split_posts: HashMap<PathBuf, HashSet<String>> = posts
         .into_iter()
@@ -60,9 +53,8 @@ pub fn generate_filters(
             println!("Generating {:?}", post);
             (
                 post,
-                content
+                strip_markdown(&content)
                     .split_whitespace()
-                    .filter(|word| filter::valid(word))
                     .map(str::to_lowercase)
                     .filter(|word| !STOPWORDS.contains(word))
                     .collect::<HashSet<String>>(),

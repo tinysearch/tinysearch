@@ -163,6 +163,10 @@ Now the challenge becomes optimizing the index datastructure
 
 [GRAPH SHOWING SPACE USAGE WITH DIFFERENT DATASTRUCTURES]
 
+## Frontend
+
+https://www.w3schools.com/howto/tryit.asp?filename=tryhow_js_autocomplete
+
 ## Lessons learned
 
 A lot of people dismiss WebAssembly as a toy technology.
@@ -170,10 +174,15 @@ This cannot be further from the truth.
 WebAssembly will revolutionize the way we build web technology.
 Whenever there is a new technology, ask yourself: "What changed? What is possible now?".
 
-## Future steps
 
 Stop words
 https://gist.github.com/sebleier/554280
+
+Markdown cleanup
+
+Basic scoring
+
+## Future steps
 
 Index word tree
 
@@ -184,6 +193,10 @@ Index word tree
 
 Find more gems at
 https://journal.valeriansaliou.name/announcing-sonic-a-super-light-alternative-to-elasticsearch/
+
+WASM is very powerful. There is no doubt in my mind, that it will transform the web.
+It provides just the right abstractions to build fast modules productively.
+
 
 # References
 

@@ -8,9 +8,6 @@ use std::path::PathBuf;
 mod types;
 use types::{Filters, Storage};
 
-mod filter;
-use crate::filter::valid;
-
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
@@ -49,12 +46,15 @@ pub fn search(query: String) -> String {
             search_terms
                 .iter()
                 .filter(|term| !STOPWORDS.contains(*term))
-                .filter(|term| filter::valid(term))
                 .all(|term| filter.contains(&term.to_lowercase()))
         })
         .map(|(name, _)| name.to_owned())
         .collect();
-    let res: Vec<String> = matches.iter().map(|p| p.to_string_lossy().to_string()).collect();
-    vec!["[", &res.join(","), "]"].join("")
-    // serde_json::to_string(&matches).unwrap_or_else(|_| "{}".to_string())
+    // let res: Vec<String> = matches
+    //     .iter()
+    //     .map(|p| p.to_string_lossy().to_string())
+    //     .map(|s| format!("\"{}\"", s))
+    //     .collect();
+    // format!("[{}]", res.join(","))
+    serde_json::to_string(&matches).unwrap_or_else(|_| "{}".to_string())
 }

@@ -23,3 +23,7 @@ build: index pack opt
 run open:
 	open index.html
 	python3 -m http.server
+
+.PHONY: clean
+clean:
+	cargo clean
