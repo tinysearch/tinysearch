@@ -9,10 +9,30 @@ The idea is to run all posts on there through tinysearch, which will generate a 
 
 The target use-case is static websites. `tinysearch` could be integrated into the build process of generators like [Jekyll](https://jekyllrb.com/), [Hugo](https://gohugo.io/), [zola](https://www.getzola.org/), or [Cobalt](https://github.com/cobalt-org/cobalt.rs).
 
+## Installation
+
+In order to generate the JavaScript bundle, first you will need to install a few dependencies:
+
+[wasm-pack](https://rustwasm.github.io/wasm-pack/):
+
+```sh
+cargo install wasm-pack
+```
+
+[binaryen](https://github.com/WebAssembly/binaryen):
+
+If you're using macOS and homebrew you can install it with:
+
+```sh
+brew install binaryen
+```
+
+Otherwise you can use you OS package manager, or download the binary
+from the [release pages](https://github.com/WebAssembly/binaryen/releases).
 
 ## Usage
 
-To generate a JavaScript bundle, run 
+To generate a JavaScript bundle, run
 
 ```
 INPUT_DIR=/path/to/blog/posts make build
