@@ -21,7 +21,7 @@ build: index pack opt
 
 .PHONY: run open
 run open:
-	open index.html
+	open http://localhost:8000
 	python3 -m http.server
 
 .PHONY: clean
