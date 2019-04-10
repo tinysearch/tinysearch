@@ -1,10 +1,21 @@
 Your Browser Now Runs Rust Code - And You Didn't Even Notice
 How I Shipped Some Rust Code To Your Browser - And You Didn't Even Notice
 - Writing A Tiny Offline Search Engine Using WASM
+Look ma, a static search engine using WASM, Rust and Bloomfilters
+Honey, I shrinked the web search
 
 I'm a big proponent of performance and privacy.
 Therefore my website should be as lean as possible.
 The homepage does not contain any images.
+
+Can serve as a replacement for Google Custom Search, Algolia, or lunr.js
+
+Talking about lunr
+
+* It has memory problems (typical sizes for an index are measured in megabytes)
+  https://github.com/olivernn/lunr.js/issues/248
+* It's integrated into a lot of static websites
+  https://github.com/olivernn/lunr.js/issues/26
 
 The challenges:
 
