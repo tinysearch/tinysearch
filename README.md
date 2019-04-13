@@ -5,13 +5,13 @@
 This is a Rust/WASM implementation of ["Writing a full-text search engine using Bloom filters"](https://www.stavros.io/posts/bloom-filter-search-engine/).
 
 I'm planning to use this on [my homepage](http://matthias-endler.de/) as a way to search through articles.
-The idea is to run all posts on there through tinysearch, which will generate a small WASM library that can be shipped to clients. This way, we get a tiny, fast full-text search engine written that works fully offline. :blush:
+The idea is to run all posts on there through tinysearch, which will generate a small WASM module that gets shipped to the browser. This way, we get a tiny, fast, full-text search engine that works fully offline. :dizzy_face:
 
-The target use-case is static websites. `tinysearch` could be integrated into the build process of generators like [Jekyll](https://jekyllrb.com/), [Hugo](https://gohugo.io/), [zola](https://www.getzola.org/), or [Cobalt](https://github.com/cobalt-org/cobalt.rs).
+The intended use-case is static websites. `tinysearch` could be integrated into the build process of generators like [Jekyll](https://jekyllrb.com/), [Hugo](https://gohugo.io/), [zola](https://www.getzola.org/), or [Cobalt](https://github.com/cobalt-org/cobalt.rs).
 
 ## Installation
 
-In order to generate the JavaScript bundle, first you will need to install a few dependencies:
+First you will need to install a few dependencies:
 
 [wasm-pack](https://rustwasm.github.io/wasm-pack/):
 
@@ -21,7 +21,7 @@ cargo install wasm-pack
 
 [binaryen](https://github.com/WebAssembly/binaryen):
 
-If you're using macOS and homebrew you can install it with:
+If you're using macOS and homebrew you can install it with
 
 ```sh
 brew install binaryen
@@ -40,7 +40,7 @@ INPUT_DIR=/path/to/blog/posts make build
 
 This will recursively go through all text files (".txt" and ".md") in
 `/path/to/blog/posts` and create a static index from them. Afterwards, it will
-create the WASM file and the JavaScript glue code thanks to [wasm-pack].
+create the WASM module and the JavaScript glue code thanks to [wasm-pack].
 
 ## Maintainers
 
