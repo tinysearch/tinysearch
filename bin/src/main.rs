@@ -47,12 +47,13 @@ fn main() -> Result<(), Error> {
     let opt = Opt::from_args();
 
     let posts: Posts = index::read(fs::read_to_string(opt.index)?)?;
-    println!("{:#?}", posts);
+    trace!("{:#?}", posts);
     storage::gen(posts)?;
 
     let temp_dir = TempDir::new("wasm")?;
+    println!("Downloading tinysearch WASM library");
     let download_dir = download_engine(&temp_dir.path())?;
-    println!("Crate content extracted to {}/", download_dir.display());
+    debug!("Crate content extracted to {}/", download_dir.display());
 
     println!("Copying index into crate");
     fs::copy("storage", &download_dir.join("storage"))?;
@@ -66,7 +67,7 @@ fn main() -> Result<(), Error> {
 
     fs::write("demo.html", String::from_utf8_lossy(&DEMO_HTML).to_string())?;
 
-    println!("All done. Open the output folder with a webserver to try a demo.");
+    println!("All done. Open the output folder with a web server to try a demo.");
     Ok(())
 }
 
