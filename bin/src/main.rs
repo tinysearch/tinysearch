@@ -35,7 +35,7 @@ struct Opt {
     index: PathBuf,
 
     /// Optimize the output using binaryen
-    #[structopt(name = "optimize", default_value = "false")]
+    #[structopt(short = "o", long = "optimize", default_value = "false")]
     optimize: bool,
 }
 
