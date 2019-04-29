@@ -31,7 +31,7 @@ cargo install wasm-pack
 
 [binaryen](https://github.com/WebAssembly/binaryen):
 
-If you're using macOS and homebrew you can install it with:
+If you're using macOS and homebrew you can install it with
 
 ```sh
 brew install binaryen
