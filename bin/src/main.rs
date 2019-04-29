@@ -34,6 +34,10 @@ struct Opt {
     #[structopt(name = "index", parse(from_os_str))]
     index: PathBuf,
 
+    /// Output path for WASM module
+    #[structopt(short = "p", long = "path", parse(from_os_str))]
+    out_path: PathBuf,
+
     /// Optimize the output using binaryen
     #[structopt(short = "o", long = "optimize")]
     optimize: bool,
@@ -47,17 +51,17 @@ fn main() -> Result<(), Error> {
     storage::gen(posts)?;
 
     let temp_dir = TempDir::new("wasm")?;
-    let out_dir = download_engine(&temp_dir.path())?;
-    println!("Crate content extracted to {}/", out_dir.display());
+    let download_dir = download_engine(&temp_dir.path())?;
+    println!("Crate content extracted to {}/", download_dir.display());
 
     println!("Copying index into crate");
-    fs::copy("storage", &out_dir.join("storage"))?;
+    fs::copy("storage", &download_dir.join("storage"))?;
 
     println!("Compiling WASM module using wasm-pack");
-    wasm_pack(out_dir)?;
+    wasm_pack(&download_dir, &opt.out_path)?;
 
     if opt.optimize {
-        optimize()?;
+        optimize(&opt.out_path)?;
     }
 
     fs::write("demo.html", String::from_utf8_lossy(&DEMO_HTML).to_string())?;
@@ -66,18 +70,18 @@ fn main() -> Result<(), Error> {
     Ok(())
 }
 
-fn optimize() -> Result<String, Error> {
+fn optimize(dir: &PathBuf) -> Result<String, Error> {
     Ok(run_output(
         Command::new("wasm-opt")
             .arg("-Oz")
             .arg("-o")
             .arg("tinysearch_engine_bg.wasm")
-            .arg("tinysearch_engine_bg.wasm"),
+            .arg("tinysearch_engine_bg.wasm")
+            .current_dir(dir),
     )?)
 }
 
-fn wasm_pack(dir: PathBuf) -> Result<String, Error> {
-    let curr_dir = std::env::current_dir()?;
+fn wasm_pack(in_dir: &PathBuf, out_dir: &PathBuf) -> Result<String, Error> {
     Ok(run_output(
         Command::new("wasm-pack")
             .arg("build")
@@ -85,8 +89,8 @@ fn wasm_pack(dir: PathBuf) -> Result<String, Error> {
             .arg("web")
             .arg("--release")
             .arg("--out-dir")
-            .arg(curr_dir)
-            .current_dir(dir),
+            .arg(out_dir)
+            .current_dir(in_dir),
     )?)
 }
 
