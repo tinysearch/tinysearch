@@ -1,0 +1,42 @@
+[package]
+name = "tinysearch-cuckoofilter"
+version = "0.4.0"
+authors = ["Seif Lotfy <seif.lotfy@gmail.com>", "Lukas Kalbertodt <lukas.kalbertodt@gmail.com>", "Florian Jacob <accounts+git@florianjacob.de>"]
+
+# A short blurb about the package. This is not rendered in any format when
+# uploaded to crates.io (aka this is not markdown)
+description = "Cuckoo Filter: Practically Better Than Bloom"
+
+# These URLs point to more information about the repository
+homepage = "http://geekyogre.com"
+repository = "https://github.com/seiflotfy/rust-cuckoofilter"
+
+# This points to a file in the repository (relative to this Cargo.toml). The
+# contents of this file are stored and indexed in the registry.
+readme = "./README.md"
+
+# This is a small list of keywords used to categorize and search for this
+# package.
+keywords = ["bloomfilter", "cuckoohashing", "cuckoofilter"]
+
+# This is a string description of the license for this package. Currently
+# crates.io will validate the license provided against a whitelist of known
+# license identifiers from http://spdx.org/licenses/. Multiple licenses can
+# be separated with a `/`
+license = "MIT"
+
+[features]
+default = []
+dev = ["clippy"]
+
+[dependencies]
+byteorder = "1.2"
+rand = "0.3"
+serde = "1.0"
+serde_derive = "1.0"
+clippy = {version = "0.0.77", optional = true}
+fnv = {version = "1.0.2", optional = true}
+farmhash = {version = "1.1", optional = true}
+
+[dev-dependencies]
+serde_json = "1.0"

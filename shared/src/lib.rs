@@ -1,13 +1,13 @@
 use bincode::Error as BincodeError;
-use cuckoofilter::{self, CuckooFilter, ExportedCuckooFilter};
 use std::convert::From;
+use tinysearch_cuckoofilter::{self, CuckooFilter, ExportedCuckooFilter};
 
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
 
-pub type Filters = HashMap<PathBuf, CuckooFilter<DefaultHasher>>;
-type ExportedFilters = HashMap<PathBuf, ExportedCuckooFilter>;
+pub type PostId = (String, String);
+pub type Filters = HashMap<PostId, CuckooFilter<DefaultHasher>>;
+type ExportedFilters = HashMap<PostId, ExportedCuckooFilter>;
 
 pub struct Storage {
     pub filters: Filters,
@@ -27,7 +27,10 @@ pub trait Score {
 // filter
 impl Score for CuckooFilter<DefaultHasher> {
     fn score(&self, terms: &HashSet<String>) -> u32 {
-        return terms.iter().filter(|term| self.contains(&term.to_lowercase())).count() as u32;
+        terms
+            .iter()
+            .filter(|term| self.contains(&term.to_lowercase()))
+            .count() as u32
     }
 }
 

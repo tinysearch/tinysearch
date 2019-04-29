@@ -1,14 +1,11 @@
 #[macro_use]
 extern crate lazy_static;
 
+use std::cmp::Reverse;
 use std::collections::HashSet;
 use std::error::Error;
-use std::cmp::Reverse;
-use std::path::PathBuf;
+use tinysearch_shared::{Filters, Score, Storage, PostId};
 use wasm_bindgen::prelude::*;
-
-mod types;
-use types::{Filters, Storage, Score};
 
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
@@ -27,15 +24,16 @@ pub fn search(query: String, num_results: usize) -> JsValue {
     let search_terms: HashSet<String> =
         query.split_whitespace().map(|s| s.to_lowercase()).collect();
 
-    let mut matches: Vec<(&PathBuf, u32)> = FILTERS
+    let mut matches: Vec<(&PostId, u32)> = FILTERS
         .iter()
         .map(|(name, filter)| (name, filter.score(&search_terms)))
         .filter(|(_, score)| *score > 0)
         .collect();
 
     matches.sort_by_key(|k| Reverse(k.1));
-    
-    let results: Vec<&PathBuf> = matches.iter()
+
+    let results: Vec<&PostId> = matches
+        .iter()
         .map(|(name, _)| name.to_owned())
         .take(num_results)
         .collect();
