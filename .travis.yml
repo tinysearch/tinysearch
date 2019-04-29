@@ -12,4 +12,5 @@ before_script:
   - cargo install --force wasm-pack || true
   - wasm-pack --version
 script:
-  - INPUT_DIR=fixtures make index pack
+  - cd bin && cargo install --force --path .
+  - tinysearch fixtures/index.json
