@@ -1,17 +1,27 @@
 # tinysearch
 
-[![Build Status](https://travis-ci.org/mre/tinysearch.svg?branch=master)](https://travis-ci.org/mre/tinysearch)
+[![Build
+Status](https://travis-ci.org/mre/tinysearch.svg?branch=master)](https://travis-ci.org/mre/tinysearch)
 
-This is a Rust/WASM implementation of ["Writing a full-text search engine using Bloom filters"](https://www.stavros.io/posts/bloom-filter-search-engine/).
+This is a lightweight, fast, full-text search engine for static websites. It is
+a Rust/WASM implementation of the Python code from the article ["Writing a
+full-text search engine using Bloom
+filters"](https://www.stavros.io/posts/bloom-filter-search-engine/). This can be
+seen as an alternative to [lunr.js](https://lunrjs.com/) and
+[elasticlunr](http://elasticlunr.com/)
 
-I'm planning to use this on [my homepage](http://matthias-endler.de/) as a way to search through articles.
-The idea is to run all posts on there through tinysearch, which will generate a small WASM library that can be shipped to clients. This way, we get a tiny, fast full-text search engine written that works fully offline. :blush:
+The idea is to run all posts on there through tinysearch, which will generate a
+small WASM library that can be shipped to clients. 
 
-The target use-case is static websites. `tinysearch` could be integrated into the build process of generators like [Jekyll](https://jekyllrb.com/), [Hugo](https://gohugo.io/), [zola](https://www.getzola.org/), or [Cobalt](https://github.com/cobalt-org/cobalt.rs).
+tinysearch could be integrated into the build process of generators like
+[Jekyll](https://jekyllrb.com/), [Hugo](https://gohugo.io/),
+[zola](https://www.getzola.org/), or
+[Cobalt](https://github.com/cobalt-org/cobalt.rs).
 
 ## Installation
 
-In order to generate the JavaScript bundle, first you will need to install a few dependencies:
+In order to generate the WASM module, we first need to install a couple of
+dependencies.
 
 [wasm-pack](https://rustwasm.github.io/wasm-pack/):
 
@@ -27,20 +37,36 @@ If you're using macOS and homebrew you can install it with:
 brew install binaryen
 ```
 
-Alternatively you can download the binary
-from the [release page](https://github.com/WebAssembly/binaryen/releases) or use your OS package manager.
+Alternatively you can download the binary from the [release
+page](https://github.com/WebAssembly/binaryen/releases) or use your OS package
+manager.
+
+After that, you can install tinysearch itself:
+
+```
+cargo install tinysearch
+```
 
 ## Usage
 
-To generate a JavaScript bundle, run
+As an input, we require a JSON file, which contains a list of your blog posts
+(see [file format](fixtures/index.json)).
 
 ```
-INPUT_DIR=/path/to/blog/posts make build
+tinysearch fixtures/index.json
 ```
 
-This will recursively go through all text files (".txt" and ".md") in
-`/path/to/blog/posts` and create a static index from them. Afterwards, it will
-create the WASM file and the JavaScript glue code thanks to [wasm-pack].
+This will create a WASM module and the JavaScript glue code to integrate it into
+your homepage. You can open the `demo.html` with any webserver to see the
+result.
+
+For example, if you have Python installed, you can try the following:
+
+```
+python -m SimpleHTTPServer
+```
+
+then browse to http://0.0.0.0:8000/demo.html
 
 ## Maintainers
 
@@ -51,7 +77,8 @@ create the WASM file and the JavaScript glue code thanks to [wasm-pack].
 
 tinysearch is licensed under either of
 
-* Apache License, Version 2.0, (LICENSE-APACHE or http://www.apache.org/licenses/LICENSE-2.0)
+* Apache License, Version 2.0, (LICENSE-APACHE or
+  http://www.apache.org/licenses/LICENSE-2.0)
 * MIT license (LICENSE-MIT or http://opensource.org/licenses/MIT)
 
 at your option.
