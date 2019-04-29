@@ -1,0 +1,18 @@
+{
+  "name": "tinysearch-engine",
+  "collaborators": [
+    "Matthias Endler <matthias-endler@gmx.net>"
+  ],
+  "description": "A tiny search engine for static websites",
+  "version": "0.2.0",
+  "license": "Apache-2.0/MIT",
+  "files": [
+    "tinysearch_engine_bg.wasm",
+    "tinysearch_engine.js",
+    "tinysearch_engine.d.ts"
+  ],
+  "module": "tinysearch_engine.js",
+  "homepage": "https://github.com/mre/tinysearch",
+  "types": "tinysearch_engine.d.ts",
+  "sideEffects": "false"
+}
