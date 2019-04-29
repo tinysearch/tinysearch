@@ -3,15 +3,16 @@
 [![Build
 Status](https://travis-ci.org/mre/tinysearch.svg?branch=master)](https://travis-ci.org/mre/tinysearch)
 
-This is a lightweight, fast, full-text search engine for static websites. It is
-a Rust/WASM implementation of the Python code from the article ["Writing a
+This is a lightweight, fast, full-text search engine for static websites.
+
+It is a Rust/WASM port of the Python code from the article ["Writing a
 full-text search engine using Bloom
 filters"](https://www.stavros.io/posts/bloom-filter-search-engine/). This can be
 seen as an alternative to [lunr.js](https://lunrjs.com/) and
-[elasticlunr](http://elasticlunr.com/)
+[elasticlunr](http://elasticlunr.com/).
 
-The idea is to run all posts on there through tinysearch, which will generate a
-small WASM library that can be shipped to clients. 
+The idea is to generate a small, self-contained WASM module from a list of
+articles of a website and ship it to browsers.
 
 tinysearch could be integrated into the build process of generators like
 [Jekyll](https://jekyllrb.com/), [Hugo](https://gohugo.io/),
@@ -20,18 +21,14 @@ tinysearch could be integrated into the build process of generators like
 
 ## Installation
 
-In order to generate the WASM module, we first need to install a couple of
-dependencies.
-
-[wasm-pack](https://rustwasm.github.io/wasm-pack/):
+[wasm-pack](https://rustwasm.github.io/wasm-pack/) is required to build the WASM module. Install it with
 
 ```sh
 cargo install wasm-pack
 ```
 
-[binaryen](https://github.com/WebAssembly/binaryen):
-
-If you're using macOS and homebrew you can install it with
+If you want to make the WebAssembly as small as possible, we recommend that you install [binaryen](https://github.com/WebAssembly/binaryen) as well.
+On macOS you can install it using homebrew like so:
 
 ```sh
 brew install binaryen
@@ -67,6 +64,12 @@ python -m SimpleHTTPServer
 ```
 
 then browse to http://0.0.0.0:8000/demo.html
+
+For advanced usage options, try
+
+```
+tinysearch --help
+```
 
 ## Maintainers
 
