@@ -11,6 +11,6 @@ matrix:
 before_script:
   - cargo install --force wasm-pack || true
   - wasm-pack --version
-  - cd bin && cargo install --force --path .
+  - cargo install --path bin
 script:
   - tinysearch fixtures/index.json
