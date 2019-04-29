@@ -11,11 +11,11 @@ use tinysearch_shared::{PostId, Storage};
 
 pub fn gen(posts: Posts) -> Result<(), Error> {
     let filters = build(posts)?;
-    println!("Storage::from");
+    trace!("Storage::from");
     let storage = Storage::from(filters);
-    println!("Write");
+    trace!("Write");
     fs::write("storage", storage.to_bytes()?)?;
-    println!("ok");
+    trace!("ok");
     Ok(())
 }
 
@@ -37,7 +37,7 @@ pub fn generate_filters(
     // Create a dictionary of {"post name": "lowercase word set"}. split_posts =
     // {name: set(re.split("\W+", contents.lower())) for name, contents in
     // posts.items()}
-    println!("Generate filters");
+    debug!("Generate filters");
 
     let bytes = include_bytes!("../stopwords");
     let stopwords = String::from_utf8(bytes.to_vec())?;
@@ -46,7 +46,7 @@ pub fn generate_filters(
     let split_posts: HashMap<PostId, HashSet<String>> = posts
         .into_iter()
         .map(|(post, content)| {
-            println!("Generating {:?}", post);
+            debug!("Generating {:?}", post);
             (
                 post,
                 cleanup(strip_markdown(&content))
@@ -68,7 +68,7 @@ pub fn generate_filters(
         // about not having enough space. Not sure why that happens, though.
         let mut filter = CuckooFilter::with_capacity(words.len() + 4);
         for word in words {
-            println!("{}", word);
+            trace!("{}", word);
             filter.add(&word)?;
         }
         for word in name.0.split_whitespace() {
@@ -76,7 +76,7 @@ pub fn generate_filters(
         }
         filters.insert(name, filter);
     }
-    println!("Done");
+    trace!("Done");
     Ok(filters)
 }
 
@@ -84,7 +84,7 @@ pub fn generate_filters(
 pub fn prepare_posts(posts: Posts) -> HashMap<PostId, String> {
     let mut prepared: HashMap<PostId, String> = HashMap::new();
     for post in posts {
-        println!("Analyzing {}", post.url);
+        debug!("Analyzing {}", post.url);
         prepared.insert((post.title, post.url), post.body);
     }
     prepared
