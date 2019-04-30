@@ -35,7 +35,7 @@ struct Opt {
     index: PathBuf,
 
     /// Output path for WASM module
-    #[structopt(short = "p", long = "path", parse(from_os_str))]
+    #[structopt(short = "p", long = "path", parse(from_os_str), default_value = ".")]
     out_path: PathBuf,
 
     /// Optimize the output using binaryen
@@ -45,6 +45,7 @@ struct Opt {
 
 fn main() -> Result<(), Error> {
     let opt = Opt::from_args();
+    let out_path = opt.out_path.canonicalize()?;
 
     let posts: Posts = index::read(fs::read_to_string(opt.index)?)?;
     trace!("{:#?}", posts);
@@ -59,10 +60,10 @@ fn main() -> Result<(), Error> {
     fs::copy("storage", &download_dir.join("storage"))?;
 
     println!("Compiling WASM module using wasm-pack");
-    wasm_pack(&download_dir, &opt.out_path)?;
+    wasm_pack(&download_dir, &out_path)?;
 
     if opt.optimize {
-        optimize(&opt.out_path)?;
+        optimize(&out_path)?;
     }
 
     fs::write("demo.html", String::from_utf8_lossy(&DEMO_HTML).to_string())?;
@@ -71,27 +72,27 @@ fn main() -> Result<(), Error> {
     Ok(())
 }
 
-fn optimize(dir: &PathBuf) -> Result<String, Error> {
-    Ok(run_output(
-        Command::new("wasm-opt")
-            .arg("-Oz")
-            .arg("-o")
-            .arg("tinysearch_engine_bg.wasm")
-            .arg("tinysearch_engine_bg.wasm")
-            .current_dir(dir),
-    )?)
-}
-
 fn wasm_pack(in_dir: &PathBuf, out_dir: &PathBuf) -> Result<String, Error> {
     Ok(run_output(
         Command::new("wasm-pack")
+            .current_dir(in_dir)
             .arg("build")
             .arg("--target")
             .arg("web")
             .arg("--release")
             .arg("--out-dir")
-            .arg(out_dir)
-            .current_dir(in_dir),
+            .arg(out_dir),
+    )?)
+}
+
+fn optimize(dir: &PathBuf) -> Result<String, Error> {
+    Ok(run_output(
+        Command::new("wasm-opt")
+            .current_dir(dir)
+            .arg("-Oz")
+            .arg("-o")
+            .arg("tinysearch_engine_bg.wasm")
+            .arg("tinysearch_engine_bg.wasm"),
     )?)
 }
 
