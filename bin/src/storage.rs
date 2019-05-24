@@ -66,7 +66,7 @@ pub fn generate_filters(
     for (name, words) in split_posts {
         // Adding some more padding to the capacity because sometimes there is an error
         // about not having enough space. Not sure why that happens, though.
-        let mut filter = CuckooFilter::with_capacity(words.len() + 4);
+        let mut filter = CuckooFilter::with_capacity(words.len() + 5);
         for word in words {
             trace!("{}", word);
             filter.add(&word)?;
@@ -88,4 +88,30 @@ pub fn prepare_posts(posts: Posts) -> HashMap<PostId, String> {
         prepared.insert((post.title, post.url), post.body);
     }
     prepared
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_filters() {
+        let mut posts = HashMap::new();
+        posts.insert(
+            (
+                "Maybe You Don't Need Kubernetes Excel Unreasonable".to_string(),
+                "".to_string(),
+            ),
+            "".to_string(),
+        );
+        let filters = generate_filters(posts).unwrap();
+        assert_eq!(filters.len(), 1);
+        let (_, filter) = filters.iter().nth(0).unwrap();
+
+        // "you", "don't", and "need" get stripped out because they are stopwords
+        assert!(filter.contains("Maybe"));
+        assert!(filter.contains("Kubernetes"));
+        assert!(filter.contains("Excel"));
+        assert!(filter.contains("Unreasonable"));
+    }
 }
