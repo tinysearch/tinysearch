@@ -67,9 +67,7 @@
 //! [milksnake]: https://github.com/getsentry/milksnake
 
 
-extern crate cuckoofilter;
-
-use cuckoofilter::CuckooError;
+use tinysearch_cuckoofilter::CuckooError;
 use std::collections::hash_map::DefaultHasher;
 
 /// Opaque type for a cuckoo filter using Rust's `std::collections::hash_map::DefaultHasher` as

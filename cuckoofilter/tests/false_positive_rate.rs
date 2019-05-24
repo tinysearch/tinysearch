@@ -1,6 +1,7 @@
-extern crate cuckoofilter;
-use cuckoofilter::CuckooFilter;
+extern crate tinysearch_cuckoofilter;
 use std::collections::hash_map::DefaultHasher;
+
+use tinysearch_cuckoofilter::CuckooFilter;
 
 // Modelled after
 // https://github.com/efficient/cuckoofilter/blob/master/example/test.cc

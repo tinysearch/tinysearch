@@ -1,6 +1,5 @@
 #![feature(test)]
 
-extern crate cuckoofilter;
 extern crate test;
 extern crate rand;
 #[cfg(feature = "fnv")]

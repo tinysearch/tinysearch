@@ -25,7 +25,7 @@ For details about the algorithm and citations please use this article for now
 ## Example usage
 
 ```rust
-extern crate cuckoofilter;
+extern crate tinysearch_cuckoofilter;
 
 ...
 
