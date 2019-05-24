@@ -1341,7 +1341,7 @@ dependencies = [
  "tar 0.4.26 (registry+https://github.com/rust-lang/crates.io-index)",
  "tempdir 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "tinysearch-cuckoofilter 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "tinysearch-shared 0.2.0",
+ "tinysearch-shared 0.2.1",
  "walkdir 2.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -1372,7 +1372,7 @@ dependencies = [
 
 [[package]]
 name = "tinysearch-shared"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "bincode 1.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "tinysearch-cuckoofilter 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
