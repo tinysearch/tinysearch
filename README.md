@@ -4,6 +4,7 @@
 Status](https://travis-ci.org/mre/tinysearch.svg?branch=master)](https://travis-ci.org/mre/tinysearch)
 
 This is a lightweight, fast, full-text search engine for static websites.
+I'm using it on [my homepage](https://matthias-endler.de/) if you like to see a quick demo.
 
 It is a Rust/WASM port of the Python code from the article ["Writing a
 full-text search engine using Bloom
@@ -13,7 +14,6 @@ seen as an alternative to [lunr.js](https://lunrjs.com/) and
 
 The idea is to generate a small, self-contained WASM module from a list of
 articles of a website and ship it to browsers.
-
 tinysearch could be integrated into the build process of generators like
 [Jekyll](https://jekyllrb.com/), [Hugo](https://gohugo.io/),
 [zola](https://www.getzola.org/), or
