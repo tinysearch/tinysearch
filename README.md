@@ -27,6 +27,12 @@ tinysearch could be integrated into the build process of generators like
 cargo install wasm-pack
 ```
 
+To optimize JavaScript, you'll also need [terser](https://github.com/terser/terser):
+
+```
+npm install terser -g
+```
+
 If you want to make the WebAssembly as small as possible, we recommend that you install [binaryen](https://github.com/WebAssembly/binaryen) as well.
 On macOS you can install it using homebrew like so:
 
