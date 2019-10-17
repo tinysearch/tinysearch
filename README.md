@@ -4,7 +4,7 @@
 Status](https://travis-ci.org/mre/tinysearch.svg?branch=master)](https://travis-ci.org/mre/tinysearch)
 
 This is a lightweight, fast, full-text search engine for static websites.
-I'm using it on [my homepage](https://matthias-endler.de/) if you like to see a quick demo.
+I'm using it on [my homepage](https://endler.dev/2019/tinysearch/) if you like to see a quick demo.
 
 It is a Rust/WASM port of the Python code from the article ["Writing a
 full-text search engine using Bloom
