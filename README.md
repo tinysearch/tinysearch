@@ -19,6 +19,13 @@ tinysearch could be integrated into the build process of generators like
 [zola](https://www.getzola.org/), or
 [Cobalt](https://github.com/cobalt-org/cobalt.rs).
 
+## Limitations
+
+- Only searches for entire words. There are no search suggestions.
+- Since we bundle all search indices for all articles into one static binary, 
+  we recommend to only use it for low- to medium-size websites.
+  Expect around 4kB (non-compressed) per article.
+
 ## Installation
 
 [wasm-pack](https://rustwasm.github.io/wasm-pack/) is required to build the WASM module. Install it with
