@@ -16,7 +16,7 @@ mod download;
 mod index;
 mod storage;
 
-use std::fs;
+use std::{fs, env};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use structopt::StructOpt;
@@ -60,6 +60,7 @@ fn main() -> Result<(), Error> {
     fs::copy("storage", &download_dir.join("storage"))?;
 
     println!("Compiling WASM module using wasm-pack");
+    env::set_var("CARGO_TARGET_DIR", env::current_dir()?.join("tinysearch_build"));
     wasm_pack(&download_dir, &out_path)?;
 
     if opt.optimize {
