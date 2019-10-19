@@ -12,12 +12,14 @@ jobs:
 
     steps:
       - uses: actions/checkout@v1
+        with:
+          rust-version: ${{ matrix.rust }}
       - name: Set Rust version
-        run: rustup default $rust
+        run: rustup default $RUST_VERSION
       - name: Install wasm-pack
         run: cargo install --force wasm-pack
       - name: Print wasm-pack version
-        run: rustup default $rust
+        run: wasm-pack --version
       - name: Build & install tinysearch
         run: cargo install --force --path bin
       - name: Build wasm package
