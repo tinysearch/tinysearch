@@ -13,9 +13,11 @@ jobs:
     steps:
       - uses: actions/checkout@v1
         with:
-          rust-version: ${{ matrix.rust }}
+          rust-version: 
       - name: Set Rust version
-        run: rustup default $RUST_VERSION
+        env:
+          RUST_VERSION: ${{ matrix.rust }}
+        run: rustup default ${RUST_VERSION}
       - name: Install wasm-pack
         run: cargo install --force wasm-pack
       - name: Print wasm-pack version
