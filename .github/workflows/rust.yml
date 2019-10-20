@@ -1,0 +1,28 @@
+name: Rust
+
+on: [push,  pull_request]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+        matrix:
+            rust: [stable, beta, nightly]
+
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          rust-version: 
+      - name: Set Rust version
+        env:
+          RUST_VERSION: ${{ matrix.rust }}
+        run: rustup default ${RUST_VERSION}
+      - name: Install wasm-pack
+        run: cargo install --force wasm-pack
+      - name: Print wasm-pack version
+        run: wasm-pack --version
+      - name: Build & install tinysearch
+        run: cargo install --force --path bin
+      - name: Build wasm package
+        run: tinysearch fixtures/index.json
