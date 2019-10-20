@@ -26,3 +26,11 @@ jobs:
         run: cargo install --force --path bin
       - name: Build wasm package
         run: tinysearch fixtures/index.json
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          prerelease: true
+          files: target/release/tinysearch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
