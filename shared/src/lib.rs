@@ -3,11 +3,10 @@ use std::convert::From;
 use tinysearch_cuckoofilter::{self, CuckooFilter, ExportedCuckooFilter};
 
 use std::collections::hash_map::DefaultHasher;
-use std::collections::{HashMap, HashSet};
 
 pub type PostId = (String, String);
-pub type Filters = HashMap<PostId, CuckooFilter<DefaultHasher>>;
-type ExportedFilters = HashMap<PostId, ExportedCuckooFilter>;
+pub type Filters = Vec<(PostId, CuckooFilter<DefaultHasher>)>;
+type ExportedFilters = Vec<(PostId, ExportedCuckooFilter)>;
 
 pub struct Storage {
     pub filters: Filters,
@@ -20,16 +19,16 @@ impl From<Filters> for Storage {
 }
 
 pub trait Score {
-    fn score(&self, terms: &HashSet<String>) -> u32;
+    fn score<A: AsRef<str>, I: IntoIterator<Item = A>>(&self, terms: I) -> u32;
 }
 
 // the score is the number of terms from the query that contained in the current
 // filter
 impl Score for CuckooFilter<DefaultHasher> {
-    fn score(&self, terms: &HashSet<String>) -> u32 {
+    fn score<A: AsRef<str>, I: IntoIterator<Item = A>>(&self, terms: I) -> u32 {
         terms
-            .iter()
-            .filter(|term| self.contains(&term.to_lowercase()))
+            .into_iter()
+            .filter(|term| self.contains(term.as_ref()))
             .count() as u32
     }
 }
