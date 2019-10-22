@@ -2,9 +2,8 @@
 extern crate lazy_static;
 
 use std::cmp::Reverse;
-use std::collections::HashSet;
 use std::error::Error;
-use tinysearch_shared::{Filters, Score, Storage, PostId};
+use tinysearch_shared::{Filters, PostId, Score, Storage};
 use wasm_bindgen::prelude::*;
 
 #[global_allocator]
@@ -21,8 +20,7 @@ lazy_static! {
 
 #[wasm_bindgen]
 pub fn search(query: String, num_results: usize) -> JsValue {
-    let search_terms: HashSet<String> =
-        query.split_whitespace().map(|s| s.to_lowercase()).collect();
+    let search_terms: Vec<String> = query.split_whitespace().map(|s| s.to_lowercase()).collect();
 
     let mut matches: Vec<(&PostId, u32)> = FILTERS
         .iter()

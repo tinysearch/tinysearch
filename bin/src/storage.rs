@@ -19,7 +19,7 @@ pub fn gen(posts: Posts) -> Result<(), Error> {
     Ok(())
 }
 
-fn build(posts: Posts) -> Result<HashMap<PostId, CuckooFilter<DefaultHasher>>, Error> {
+fn build(posts: Posts) -> Result<Vec<(PostId, CuckooFilter<DefaultHasher>)>, Error> {
     let posts = prepare_posts(posts);
     generate_filters(posts)
 }
@@ -33,7 +33,7 @@ fn cleanup(s: String) -> String {
 #[no_mangle]
 pub fn generate_filters(
     posts: HashMap<PostId, String>,
-) -> Result<HashMap<PostId, CuckooFilter<DefaultHasher>>, Error> {
+) -> Result<Vec<(PostId, CuckooFilter<DefaultHasher>)>, Error> {
     // Create a dictionary of {"post name": "lowercase word set"}. split_posts =
     // {name: set(re.split("\W+", contents.lower())) for name, contents in
     // posts.items()}
@@ -62,7 +62,7 @@ pub fn generate_filters(
     // words in each. We could do more things, like stemming, removing common
     // words (a, the, etc), but we’re going for naive, so let’s just create the
     // filters for now:
-    let mut filters = HashMap::new();
+    let mut filters = Vec::new();
     for (name, words) in split_posts {
         // Adding some more padding to the capacity because sometimes there is an error
         // about not having enough space. Not sure why that happens, though.
@@ -74,7 +74,7 @@ pub fn generate_filters(
         for word in name.0.split_whitespace() {
             filter.add(&cleanup(strip_markdown(word)))?;
         }
-        filters.insert(name, filter);
+        filters.push((name, filter));
     }
     trace!("Done");
     Ok(filters)
