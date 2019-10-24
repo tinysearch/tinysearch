@@ -9,7 +9,7 @@ use wasm_bindgen::prelude::*;
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
-fn load_filters() -> Result<Filters, Box<Error>> {
+fn load_filters() -> Result<Filters, Box<dyn Error>> {
     let bytes = include_bytes!("../storage");
     Ok(Storage::from_bytes(bytes)?.filters)
 }

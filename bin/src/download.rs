@@ -9,7 +9,7 @@ use reqwest::header::CONTENT_LENGTH;
 const CRATES_API_ROOT: &'static str = "https://crates.io/api/v1/crates";
 
 /// Download given crate and return it as a vector of gzipped bytes.
-fn download_crate(name: &str, version: &Version) -> Result<Vec<u8>, Box<Error>> {
+fn download_crate(name: &str, version: &Version) -> Result<Vec<u8>, Box<dyn Error>> {
     let download_url = format!("{}/{}/{}/download", CRATES_API_ROOT, name, version);
     debug!(
         "Downloading crate `{}=={}` from {}",
@@ -38,7 +38,7 @@ fn download_crate(name: &str, version: &Version) -> Result<Vec<u8>, Box<Error>> 
 
 /// Talk to crates.io to get the newest version of given crate
 /// that matches specified version requirements.
-fn get_newest_version(crate_: String) -> Result<Version, Box<Error>> {
+fn get_newest_version(crate_: String) -> Result<Version, Box<dyn Error>> {
     let versions_url = format!("{}/{}/versions", CRATES_API_ROOT, crate_);
     debug!(
         "Fetching latest matching version of crate `{}` from {}",
