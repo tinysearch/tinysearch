@@ -30,8 +30,7 @@
       // modes
       await init('./tinysearch_engine_bg.wasm');
       const data = new Uint8Array(await fetch('/storage')
-        .then(res => res.blob())
-        .then(blob => blob.arrayBuffer())
+        .then(res => res.arrayBuffer())
       );
       window.tinysearch = new TinySearch();
       window.tinysearch.loadFilters(data);
