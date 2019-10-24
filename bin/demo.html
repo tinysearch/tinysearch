@@ -15,8 +15,7 @@
     // don't support natively imported WebAssembly as an ES module, but
     // eventually the manual initialization won't be required!
     // import { search, default as init } from './tinysearch_engine.js';
-    import { search, default as init } from './tinysearch_engine.js';
-    window.search = search;
+    import { TinySearch, default as init } from './tinysearch_engine.js';
 
     async function run() {
       // First up we need to actually load the wasm file, so we use the
@@ -30,6 +29,12 @@
       // exports which is the same as importing the `*_bg` module in other
       // modes
       await init('./tinysearch_engine_bg.wasm');
+      const data = new Uint8Array(await fetch('/storage')
+        .then(res => res.blob())
+        .then(blob => blob.arrayBuffer())
+      );
+      window.tinysearch = new TinySearch()
+      window.tinysearch.loadFilters(data);
     }
 
     run();
@@ -39,7 +44,7 @@
     // And afterwards we can use all the functionality defined in wasm.
     function doSearch() {
       let value = document.getElementById("demo").value;
-      const arr = search(value, 10);
+      const arr = tinysearch.search(value, 10);
       let ul = document.getElementById("results");
       ul.innerHTML = "";
 
