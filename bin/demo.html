@@ -33,7 +33,7 @@
         .then(res => res.blob())
         .then(blob => blob.arrayBuffer())
       );
-      window.tinysearch = new TinySearch()
+      window.tinysearch = new TinySearch();
       window.tinysearch.loadFilters(data);
     }
 
