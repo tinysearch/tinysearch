@@ -1,28 +1,52 @@
 name: Rust
 
-on: [push,  pull_request]
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+  schedule:
+    - cron: "00 04 * * *"
 
 jobs:
-  build:
-
-    runs-on: ubuntu-latest
+  ci:
+    runs-on: ${{ matrix.os }}
     strategy:
-        matrix:
-            rust: [stable, beta, nightly]
-
+      matrix:
+        os: [ubuntu-latest, windows-latest, macOS-latest]
+        rust:
+          - stable
+          - beta
+          - nightly
+          - "1.39.0"
     steps:
       - uses: actions/checkout@v1
+
+      - name: Install Rust
+        uses: actions-rs/toolchain/@v1
         with:
-          rust-version: 
-      - name: Set Rust version
-        env:
-          RUST_VERSION: ${{ matrix.rust }}
-        run: rustup default ${RUST_VERSION}
-      - name: Install wasm-pack
-        run: cargo install --force wasm-pack
-      - name: Print wasm-pack version
-        run: wasm-pack --version
-      - name: Build & install tinysearch
-        run: cargo install --force --path bin
-      - name: Build wasm package
-        run: tinysearch fixtures/index.json
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+          components: clippy
+
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+
+      - name: Run Tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+
+      - name: Audit for Security Vulnerabilities
+        uses: actions-rs/audit-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate Docs
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --all-features --no-deps
