@@ -7,5 +7,5 @@ description = "Shared libraries for tinysearch - a tiny search engine for static
 license = "Apache-2.0/MIT"
 
 [dependencies]
-bincode = "1.2.0"
+bincode = "1.2.1"
 tinysearch-cuckoofilter = "0.4.1"
