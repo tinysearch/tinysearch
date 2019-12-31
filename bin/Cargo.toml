@@ -10,7 +10,7 @@ homepage = "https://github.com/mre/tinysearch"
 
 [dependencies]
 structopt = "0.3.7"
-structopt-derive = "0.3.3"
+structopt-derive = "0.4.0"
 tinysearch-shared = { path = "../shared", version = "0.2.1" }
 log = "0.4.8"
 reqwest = "0.9.24"
