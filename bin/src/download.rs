@@ -15,7 +15,7 @@ fn download_crate(name: &str, version: &Version) -> Result<Vec<u8>, Box<dyn Erro
         "Downloading crate `{}=={}` from {}",
         name, version, download_url
     );
-    let mut response = reqwest::get(&download_url)?;
+    let mut response = reqwest::blocking::get(&download_url)?;
 
     let content_length: Option<usize> = response
         .headers()
@@ -44,7 +44,7 @@ fn get_newest_version(crate_: String) -> Result<Version, Box<dyn Error>> {
         "Fetching latest matching version of crate `{}` from {}",
         crate_, versions_url
     );
-    let response: Json = reqwest::get(&versions_url)?.json()?;
+    let response: Json = reqwest::blocking::get(&versions_url)?.json()?;
 
     // TODO: rather that silently skipping over incorrect versions,
     // report them as malformed response from crates.io
