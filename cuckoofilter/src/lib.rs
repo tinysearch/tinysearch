@@ -16,9 +16,6 @@
 //! extern crate tinysearch_cuckoofilter;
 //! ```
 
-#![cfg_attr(feature = "dev", feature(plugin))]
-#![cfg_attr(feature = "dev", plugin(clippy))]
-
 mod bucket;
 mod util;
 
