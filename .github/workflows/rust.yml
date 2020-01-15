@@ -38,6 +38,18 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
+          
+      - name: Install wasm-pack
+        run: cargo install --force wasm-pack
+        
+      - name: Print wasm-pack version
+        run: wasm-pack --version
+        
+      - name: Build & install tinysearch
+        run: cargo install --force --path bin
+        
+      - name: Build wasm package
+        run: tinysearch fixtures/index.json
 
       - name: Audit for Security Vulnerabilities
         uses: actions-rs/audit-check@v1
