@@ -45,7 +45,7 @@ jobs:
         run: cargo install --force --path bin
 
       - name: Build wasm package
-        run: tinysearch fixtures/index.json
+        run: RUST_LOG=debug tinysearch fixtures/index.json
 
       - name: Audit for Security Vulnerabilities
         uses: actions-rs/audit-check@v1

@@ -45,6 +45,7 @@ fn get_newest_version(crate_: String) -> Result<Version, Error> {
         crate_, versions_url
     );
     let response: Json = reqwest::blocking::get(&versions_url)?.json()?;
+    debug!("Got crates.io response: {:?}", response);
 
     // TODO: rather than silently skipping over incorrect versions,
     // report them as malformed response from crates.io
