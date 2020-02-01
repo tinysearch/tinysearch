@@ -22,8 +22,8 @@ pub trait Score {
     fn score<A: AsRef<str>, I: IntoIterator<Item = A>>(&self, terms: I) -> u32;
 }
 
-// the score is the number of terms from the query that contained in the current
-// filter
+// the score is the number of terms from the query that are contained in the
+// current filter
 impl Score for CuckooFilter<DefaultHasher> {
     fn score<A: AsRef<str>, I: IntoIterator<Item = A>>(&self, terms: I) -> u32 {
         terms
