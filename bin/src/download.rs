@@ -70,7 +70,7 @@ fn get_newest_version(crate_: String) -> Result<Version, Error> {
     versions.sort_by(|a, b| b.cmp(a));
     Ok(versions
         .first()
-        .ok_or(err_msg("Cannot find any version of crate"))?
+        .ok_or_else(|| err_msg("Cannot find any version of crate"))?
         .to_owned())
 }
 

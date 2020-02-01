@@ -8,9 +8,9 @@ use pulldown_cmark::Event::{End, HardBreak, SoftBreak, Start, Text};
 use pulldown_cmark::{Parser, Tag};
 
 pub fn strip_markdown(markdown: &str) -> String {
-    let mut parser = Parser::new(&markdown);
+    let parser = Parser::new(&markdown);
     let mut buffer = String::new();
-    while let Some(event) = parser.next() {
+    for event in parser {
         debug!("{:?}", event);
         match event {
             Start(tag) => start_tag(tag, &mut buffer),
