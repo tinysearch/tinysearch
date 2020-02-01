@@ -56,7 +56,7 @@ impl Storage {
     fn hydrate(exported_filters: ExportedFilters) -> Filters {
         exported_filters
             .into_iter()
-            .map(|(key, exported)| (key.clone(), CuckooFilter::<DefaultHasher>::from(exported)))
+            .map(|(key, exported)| (key, CuckooFilter::<DefaultHasher>::from(exported)))
             .collect()
     }
 }

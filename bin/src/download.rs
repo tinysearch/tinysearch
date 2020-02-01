@@ -6,7 +6,7 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use reqwest::header::CONTENT_LENGTH;
-const CRATES_API_ROOT: &'static str = "https://crates.io/api/v1/crates";
+const CRATES_API_ROOT: &str = "https://crates.io/api/v1/crates";
 
 /// Download given crate and return it as a vector of gzipped bytes.
 fn download_crate(name: &str, version: &Version) -> Result<Vec<u8>, Error> {

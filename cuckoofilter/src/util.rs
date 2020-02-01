@@ -1,6 +1,6 @@
-use std::hash::{Hash, Hasher};
-use byteorder::{BigEndian, WriteBytesExt};
 use crate::bucket::{Fingerprint, FINGERPRINT_SIZE};
+use byteorder::{BigEndian, WriteBytesExt};
+use std::hash::{Hash, Hasher};
 
 // A struct combining *F*ingerprint *a*nd *I*ndexes,
 // to have a return type with named fields
@@ -52,11 +52,7 @@ impl FaI {
 
         let i1 = index_hash as usize;
         let i2 = get_alt_index::<H>(fp, i1);
-        FaI {
-            fp: fp,
-            i1: i1,
-            i2: i2,
-        }
+        FaI { fp, i1, i2 }
     }
 
     pub fn random_index<R: ::rand::Rng>(&self, r: &mut R) -> usize {

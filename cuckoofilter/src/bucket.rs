@@ -15,7 +15,7 @@ impl Fingerprint {
     /// number. If the created Fingerprint would be equal to the
     /// empty Fingerprint, None is returned.
     pub fn from_data(data: [u8; FINGERPRINT_SIZE]) -> Option<Fingerprint> {
-        let result = Fingerprint { data: data };
+        let result = Fingerprint { data };
         if result.is_empty() {
             None
         } else {
@@ -31,7 +31,7 @@ impl Fingerprint {
     }
 
     /// Checks if this is the empty Fingerprint.
-    pub fn is_empty(&self) -> bool {
+    pub fn is_empty(self) -> bool {
         self.data == EMPTY_FINGERPRINT_DATA
     }
 
@@ -100,6 +100,6 @@ impl<'a> From<&'a [u8]> for Bucket {
         for (idx, value) in fingerprints.chunks(FINGERPRINT_SIZE).enumerate() {
             buffer[idx].slice_copy(value);
         }
-        Bucket { buffer: buffer }
+        Bucket { buffer }
     }
 }

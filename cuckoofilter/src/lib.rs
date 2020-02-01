@@ -25,7 +25,6 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 
-
 use bucket::{Bucket, Fingerprint, BUCKET_SIZE};
 use core::hash::Hash;
 use core::hash::Hasher;
@@ -150,7 +149,7 @@ where
         let len = self.buckets.len();
         self.buckets[i1 % len]
             .get_fingerprint_index(fp)
-            .or(self.buckets[i2 % len].get_fingerprint_index(fp))
+            .or_else(|| self.buckets[i2 % len].get_fingerprint_index(fp))
             .is_some()
     }
 
@@ -295,7 +294,7 @@ impl<H> From<ExportedCuckooFilter> for CuckooFilter<H> {
             buckets: exported
                 .values
                 .chunks(BUCKET_SIZE)
-                .map(|buffers| Bucket::from(buffers))
+                .map(Bucket::from)
                 .collect::<Vec<_>>()
                 .into_boxed_slice(),
             len: exported.length,
