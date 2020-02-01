@@ -15,10 +15,11 @@ use tempdir::TempDir;
 mod download;
 mod index;
 mod storage;
+mod strip_markdown;
 
-use std::{fs, env};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::{env, fs};
 use structopt::StructOpt;
 
 use download::download_engine;
@@ -60,7 +61,10 @@ fn main() -> Result<(), Error> {
     fs::copy("storage", &download_dir.join("storage"))?;
 
     println!("Compiling WASM module using wasm-pack");
-    env::set_var("CARGO_TARGET_DIR", env::current_dir()?.join("tinysearch_build"));
+    env::set_var(
+        "CARGO_TARGET_DIR",
+        env::current_dir()?.join("tinysearch_build"),
+    );
     wasm_pack(&download_dir, &out_path)?;
 
     if opt.optimize {
