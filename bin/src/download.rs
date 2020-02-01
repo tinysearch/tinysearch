@@ -1,6 +1,6 @@
+use failure::{err_msg, Error};
 use semver::Version;
 use serde_json::Value as Json;
-use std::error::Error;
 use std::io::Read;
 use std::path::Path;
 use std::path::PathBuf;
@@ -9,7 +9,7 @@ use reqwest::header::CONTENT_LENGTH;
 const CRATES_API_ROOT: &'static str = "https://crates.io/api/v1/crates";
 
 /// Download given crate and return it as a vector of gzipped bytes.
-fn download_crate(name: &str, version: &Version) -> Result<Vec<u8>, Box<dyn Error>> {
+fn download_crate(name: &str, version: &Version) -> Result<Vec<u8>, Error> {
     let download_url = format!("{}/{}/{}/download", CRATES_API_ROOT, name, version);
     debug!(
         "Downloading crate `{}=={}` from {}",
@@ -38,7 +38,7 @@ fn download_crate(name: &str, version: &Version) -> Result<Vec<u8>, Box<dyn Erro
 
 /// Talk to crates.io to get the newest version of given crate
 /// that matches specified version requirements.
-fn get_newest_version(crate_: String) -> Result<Version, Box<dyn Error>> {
+fn get_newest_version(crate_: String) -> Result<Version, Error> {
     let versions_url = format!("{}/{}/versions", CRATES_API_ROOT, crate_);
     debug!(
         "Fetching latest matching version of crate `{}` from {}",
@@ -46,7 +46,7 @@ fn get_newest_version(crate_: String) -> Result<Version, Box<dyn Error>> {
     );
     let response: Json = reqwest::blocking::get(&versions_url)?.json()?;
 
-    // TODO: rather that silently skipping over incorrect versions,
+    // TODO: rather than silently skipping over incorrect versions,
     // report them as malformed response from crates.io
     let mut versions = response
         .pointer("/versions")
@@ -61,10 +61,10 @@ fn get_newest_version(crate_: String) -> Result<Version, Box<dyn Error>> {
                 .filter_map(|v| Version::parse(v).ok())
                 .collect::<Vec<_>>()
         })
-        .ok_or_else(|| format!("malformed response from {}", versions_url))?;
+        .ok_or_else(|| err_msg(format!("malformed response from {}", versions_url)))?;
 
     if versions.is_empty() {
-        return Err("no valid versions found".into());
+        failure::bail!("no valid versions found");
     }
 
     versions.sort_by(|a, b| b.cmp(a));
@@ -74,8 +74,8 @@ fn get_newest_version(crate_: String) -> Result<Version, Box<dyn Error>> {
         .to_owned())
 }
 
-pub fn download_engine(dir: &Path) -> Result<PathBuf, std::io::Error> {
-    let version = get_newest_version("tinysearch-engine".to_string()).unwrap();
+pub fn download_engine(dir: &Path) -> Result<PathBuf, Error> {
+    let version = get_newest_version("tinysearch-engine".to_string())?;
     let crate_bytes = download_crate("tinysearch-engine", &version).expect("Cannot download crate");
 
     // Extract to a directory named $CRATE-$VERSION
