@@ -14,15 +14,29 @@ jobs:
       - uses: actions/checkout@v1
         with:
           rust-version: 
+
       - name: Set Rust version
         env:
           RUST_VERSION: ${{ matrix.rust }}
         run: rustup default ${RUST_VERSION}
+
+      - if: matrix.rust == 'stable'
+        run: rustup component add clippy
+
+      - if: matrix.rust == 'stable'
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features
+
       - name: Install wasm-pack
         run: cargo install --force wasm-pack
+
       - name: Print wasm-pack version
         run: wasm-pack --version
+
       - name: Build & install tinysearch
         run: cargo install --force --path bin
+
       - name: Build wasm package
         run: tinysearch fixtures/index.json
