@@ -87,7 +87,7 @@ impl Bucket {
     pub fn get_fingerprint_data(&self) -> Vec<u8> {
         self.buffer
             .iter()
-            .flat_map(|f| f.data.into_iter())
+            .flat_map(|f| f.data.iter())
             .cloned()
             .collect()
     }
