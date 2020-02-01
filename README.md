@@ -1,7 +1,6 @@
 # tinysearch
 
-[![Build
-Status](https://travis-ci.org/mre/tinysearch.svg?branch=master)](https://travis-ci.org/mre/tinysearch)
+![CI](https://github.com/mre/tinysearch/workflows/CI/badge.svg)
 
 This is a lightweight, fast, full-text search engine for static websites. I'm
 using it on [my homepage](https://endler.dev/2019/tinysearch/) if you like to
