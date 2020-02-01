@@ -70,13 +70,13 @@ fn get_newest_version(crate_: String) -> Result<Version, Error> {
     versions.sort_by(|a, b| b.cmp(a));
     Ok(versions
         .first()
-        .expect("Cannot find any version of crate")
+        .ok_or(err_msg("Cannot find any version of crate"))?
         .to_owned())
 }
 
 pub fn download_engine(dir: &Path) -> Result<PathBuf, Error> {
     let version = get_newest_version("tinysearch-engine".to_string())?;
-    let crate_bytes = download_crate("tinysearch-engine", &version).expect("Cannot download crate");
+    let crate_bytes = download_crate("tinysearch-engine", &version)?;
 
     // Extract to a directory named $CRATE-$VERSION
     // Due to how crate archives are structured (they contain
