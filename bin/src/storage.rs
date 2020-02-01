@@ -1,11 +1,10 @@
-use strip_markdown::strip_markdown;
-
 use failure::Error;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 
 use crate::index::Posts;
+use crate::strip_markdown::strip_markdown;
 use tinysearch_cuckoofilter::{self, CuckooFilter};
 use tinysearch_shared::{PostId, Storage};
 
