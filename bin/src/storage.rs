@@ -38,7 +38,7 @@ pub fn generate_filters(
     // posts.items()}
     debug!("Generate filters");
 
-    let bytes = include_bytes!("../stopwords");
+    let bytes = include_bytes!("../assets/stopwords");
     let stopwords = String::from_utf8(bytes.to_vec())?;
     let stopwords: HashSet<String> = stopwords.split_whitespace().map(String::from).collect();
 
