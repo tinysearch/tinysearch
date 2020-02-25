@@ -24,3 +24,7 @@ install: ## Install tinysearch
 .PHONY: test
 test: ## Run unittests
 	cargo test
+
+.PHONY: run
+run: ## Run tinysearch with sample input
+	cargo run -- fixtures/index.json

@@ -10,9 +10,9 @@ extern crate structopt_derive;
 extern crate log;
 
 use failure::{Error, ResultExt};
+use std::io::Write;
 use tempdir::TempDir;
 
-mod download;
 mod index;
 mod storage;
 mod strip_markdown;
@@ -22,11 +22,13 @@ use std::process::{Command, Stdio};
 use std::{env, fs};
 use structopt::StructOpt;
 
-use download::download_engine;
+use fs::File;
 use index::Posts;
 
+include!(concat!(env!("OUT_DIR"), "/engine.rs"));
+
 lazy_static! {
-    static ref DEMO_HTML: &'static [u8] = include_bytes!("../demo.html");
+    static ref DEMO_HTML: &'static [u8] = include_bytes!("../assets/demo.html");
 }
 
 #[derive(StructOpt, Debug)]
@@ -44,7 +46,28 @@ struct Opt {
     optimize: bool,
 }
 
+fn extract_engine(temp_dir: &PathBuf) -> Result<(), Error> {
+    for file in FILES.file_names() {
+        // This hack removes the "../" prefix that
+        // gets introduced by including the crates
+        // from the `bin` parent directory.
+        let filepath = file.trim_start_matches("../");
+        let outpath = temp_dir.join(filepath);
+        if let Some(parent) = outpath.parent() {
+            debug!("Creating parent dir {:?}", &parent);
+            fs::create_dir_all(&parent)?;
+        }
+        debug!("Extracting {:?}", &outpath);
+        let content = FILES.get(file)?;
+        let mut outfile = File::create(&outpath)?;
+        outfile.write_all(&content)?;
+    }
+    Ok(())
+}
+
 fn main() -> Result<(), Error> {
+    FILES.set_passthrough(env::var_os("PASSTHROUGH").is_some());
+
     let opt = Opt::from_args();
     let out_path = opt.out_path.canonicalize()?;
 
@@ -53,19 +76,15 @@ fn main() -> Result<(), Error> {
     storage::gen(posts)?;
 
     let temp_dir = TempDir::new("wasm")?;
-    println!("Downloading tinysearch WASM library");
-    let download_dir = download_engine(&temp_dir.path())?;
-    debug!("Crate content extracted to {}/", download_dir.display());
+    println!("Extracting tinysearch WASM engine");
+    extract_engine(&temp_dir.path().to_path_buf())?;
+    debug!("Crate content extracted to {:?}/", &temp_dir);
 
     println!("Copying index into crate");
-    fs::copy("storage", &download_dir.join("storage"))?;
+    fs::copy("storage", temp_dir.path().join("engine/storage"))?;
 
     println!("Compiling WASM module using wasm-pack");
-    env::set_var(
-        "CARGO_TARGET_DIR",
-        env::current_dir()?.join("tinysearch_build"),
-    );
-    wasm_pack(&download_dir, &out_path)?;
+    wasm_pack(&temp_dir.path().join("engine").to_path_buf(), &out_path)?;
 
     if opt.optimize {
         optimize(&out_path)?;
@@ -80,8 +99,8 @@ fn main() -> Result<(), Error> {
 fn wasm_pack(in_dir: &PathBuf, out_dir: &PathBuf) -> Result<String, Error> {
     Ok(run_output(
         Command::new("wasm-pack")
-            .current_dir(in_dir)
             .arg("build")
+            .arg(in_dir)
             .arg("--target")
             .arg("web")
             .arg("--release")
