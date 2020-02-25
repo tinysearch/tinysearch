@@ -38,4 +38,4 @@ fnv = {version = "1.0.2", optional = true}
 farmhash = {version = "1.1.5", optional = true}
 
 [dev-dependencies]
-serde_json = "1.0.44"
+serde_json = "1.0.48"
