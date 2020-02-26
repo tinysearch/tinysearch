@@ -36,7 +36,10 @@ jobs:
           args: --all-features
 
       - name: Install wasm-pack
-        run: cargo install --force wasm-pack
+        run: >
+          cargo install --force 
+                        --git https://github.com/boringcactus/wasm-pack.git
+                        --branch first-class-bins
 
       - name: Print wasm-pack version
         run: wasm-pack --version
