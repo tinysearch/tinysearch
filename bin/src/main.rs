@@ -9,7 +9,7 @@ mod storage;
 mod strip_markdown;
 
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::{env, fs};
 use structopt::StructOpt;
@@ -42,7 +42,7 @@ struct Opt {
     optimize: bool,
 }
 
-fn extract_engine(temp_dir: &PathBuf) -> Result<(), Error> {
+fn extract_engine(temp_dir: &Path) -> Result<(), Error> {
     for file in FILES.file_names() {
         // This hack removes the "../" prefix that
         // gets introduced by including the crates
@@ -73,14 +73,14 @@ fn main() -> Result<(), Error> {
 
     let temp_dir = TempDir::new("wasm")?;
     println!("Extracting tinysearch WASM engine");
-    extract_engine(&temp_dir.path().to_path_buf())?;
+    extract_engine(&temp_dir.path())?;
     debug!("Crate content extracted to {:?}/", &temp_dir);
 
     println!("Copying index into crate");
     fs::copy("storage", temp_dir.path().join("engine/storage"))?;
 
     println!("Compiling WASM module using wasm-pack");
-    wasm_pack(&temp_dir.path().join("engine").to_path_buf(), &out_path)?;
+    wasm_pack(&temp_dir.path().join("engine"), &out_path)?;
 
     if opt.optimize {
         optimize(&out_path)?;
@@ -92,7 +92,7 @@ fn main() -> Result<(), Error> {
     Ok(())
 }
 
-fn wasm_pack(in_dir: &PathBuf, out_dir: &PathBuf) -> Result<String, Error> {
+fn wasm_pack(in_dir: &Path, out_dir: &PathBuf) -> Result<String, Error> {
     Ok(run_output(
         Command::new("wasm-pack")
             .arg("build")
