@@ -1,26 +1,22 @@
 #[macro_use]
-extern crate lazy_static;
-
-#[macro_use]
 extern crate serde_derive;
-
-extern crate structopt_derive;
 
 #[macro_use]
 extern crate log;
-
-use failure::{Error, ResultExt};
-use std::io::Write;
-use tempdir::TempDir;
 
 mod index;
 mod storage;
 mod strip_markdown;
 
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::{env, fs};
 use structopt::StructOpt;
+
+use failure::{Error, ResultExt};
+use lazy_static::lazy_static;
+use tempdir::TempDir;
 
 use fs::File;
 use index::Posts;
