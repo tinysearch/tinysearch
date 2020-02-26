@@ -657,7 +657,7 @@ dependencies = [
 
 [[package]]
 name = "tinysearch"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "failure 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "includedir 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
