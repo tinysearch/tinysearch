@@ -5,3 +5,4 @@ tinysearch_engine.d.ts
 tinysearch_engine_bg.wasm
 tinysearch_engine_bg.d.ts
 package.json
+pkg/
