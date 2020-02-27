@@ -37,7 +37,7 @@ jobs:
 
       - name: Install wasm-pack
         run:
-          cargo install --force --git https://github.com/boringcactus/wasm-pack.git --branch first-class-bins
+          cargo install --force --git https://github.com/mre/wasm-pack.git --branch first-class-bins
 
       - name: Print wasm-pack version
         run: wasm-pack --version
