@@ -20,9 +20,9 @@ into the build process of generators like [Jekyll](https://jekyllrb.com/),
 
 ## Limitations
 
-- Only searches for entire words. There are no search suggestions.
+- Only searches for entire words. There are no search suggestions (yet).
 - Since we bundle all search indices for all articles into one static binary, we
-  recommend to only use it for low- to medium-size websites. Expect around 4kB
+  recommend to only use it for small- to medium-size websites. Expect around 4kB
   (non-compressed) per article.
 
 ## Installation
