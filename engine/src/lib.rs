@@ -21,7 +21,7 @@ lazy_static! {
 #[wasm_bindgen]
 pub fn search(query: String, num_results: usize) -> JsValue {
     let lowercase_query = query.to_lowercase();
-    let search_terms: Vec<&str> = query.split_whitespace().collect();
+    let search_terms: Vec<&str> = lowercase_query.split_whitespace().collect();
 
     let mut matches: Vec<(&PostId, u32)> = FILTERS
         .iter()
