@@ -13,13 +13,13 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
-        matrix:
-            rust: [stable, beta, nightly]
+      matrix:
+        rust: [stable, beta, nightly]
 
     steps:
       - uses: actions/checkout@v1
         with:
-          rust-version: 
+          rust-version:
 
       - name: Set Rust version
         env:
@@ -36,14 +36,13 @@ jobs:
           args: --all-features
 
       - name: Install wasm-pack
-        run:
-          cargo install --force --git https://github.com/mre/wasm-pack.git --branch first-class-bins
+        run: cargo install --force --git https://github.com/mre/wasm-pack.git --branch first-class-bins
 
       - name: Print wasm-pack version
         run: wasm-pack --version
 
       - name: Build & install tinysearch
-        run: cargo install --force --path bin
+        run: wasm-pack build generator --target nodejs
 
       - name: Build wasm package
         run: RUST_LOG=debug tinysearch fixtures/index.json

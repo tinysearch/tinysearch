@@ -15,7 +15,7 @@ clean: ### Clean up project artifacts
 
 .PHONY: build
 build: ### Build project
-	cargo build
+	wasm-pack build generator --target nodejs
 
 .PHONY: install
 install: ## Install tinysearch
@@ -31,7 +31,6 @@ run: ## Run tinysearch with sample input
 
 .PHONY: pack
 pack: ## Pack tinysearch node module
-	wasm-pack build bin
 	wasm-pack pack
 
 .PHONY: publish

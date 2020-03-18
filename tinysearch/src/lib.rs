@@ -12,14 +12,12 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::{env, fs};
-use structopt::StructOpt;
 
 use failure::{Error, ResultExt};
-use lazy_static::lazy_static;
-use tempdir::TempDir;
-
 use fs::File;
 use index::Posts;
+use lazy_static::lazy_static;
+use tempdir::TempDir;
 
 include!(concat!(env!("OUT_DIR"), "/engine.rs"));
 
@@ -27,19 +25,30 @@ lazy_static! {
     static ref DEMO_HTML: &'static [u8] = include_bytes!("../assets/demo.html");
 }
 
-#[derive(StructOpt, Debug)]
-struct Opt {
-    /// index JSON file to process
-    #[structopt(name = "index", parse(from_os_str))]
-    index: PathBuf,
+pub fn generate(index: PathBuf, out_path: PathBuf, optim: bool) -> Result<(), Error> {
+    let posts: Posts = index::read(fs::read_to_string(index)?)?;
+    trace!("{:#?}", posts);
+    storage::gen(posts)?;
 
-    /// Output path for WASM module
-    #[structopt(short = "p", long = "path", parse(from_os_str), default_value = ".")]
-    out_path: PathBuf,
+    let temp_dir = TempDir::new("wasm")?;
+    println!("Extracting tinysearch WASM engine");
+    extract_engine(&temp_dir.path())?;
+    debug!("Crate content extracted to {:?}/", &temp_dir);
 
-    /// Optimize the output using binaryen
-    #[structopt(short = "o", long = "optimize")]
-    optimize: bool,
+    println!("Copying index into crate");
+    fs::copy("storage", temp_dir.path().join("engine/storage"))?;
+
+    println!("Compiling WASM module using wasm-pack");
+    wasm_pack(&temp_dir.path().join("engine"), &out_path)?;
+
+    if optim {
+        optimize(&out_path)?;
+    }
+
+    fs::write("demo.html", String::from_utf8_lossy(&DEMO_HTML).to_string())?;
+
+    println!("All done. Open the output folder with a web server to try a demo.");
+    Ok(())
 }
 
 fn extract_engine(temp_dir: &Path) -> Result<(), Error> {
@@ -58,37 +67,6 @@ fn extract_engine(temp_dir: &Path) -> Result<(), Error> {
         let mut outfile = File::create(&outpath)?;
         outfile.write_all(&content)?;
     }
-    Ok(())
-}
-
-fn main() -> Result<(), Error> {
-    FILES.set_passthrough(env::var_os("PASSTHROUGH").is_some());
-
-    let opt = Opt::from_args();
-    let out_path = opt.out_path.canonicalize()?;
-
-    let posts: Posts = index::read(fs::read_to_string(opt.index)?)?;
-    trace!("{:#?}", posts);
-    storage::gen(posts)?;
-
-    let temp_dir = TempDir::new("wasm")?;
-    println!("Extracting tinysearch WASM engine");
-    extract_engine(&temp_dir.path())?;
-    debug!("Crate content extracted to {:?}/", &temp_dir);
-
-    println!("Copying index into crate");
-    fs::copy("storage", temp_dir.path().join("engine/storage"))?;
-
-    println!("Compiling WASM module using wasm-pack");
-    wasm_pack(&temp_dir.path().join("engine"), &out_path)?;
-
-    if opt.optimize {
-        optimize(&out_path)?;
-    }
-
-    fs::write("demo.html", String::from_utf8_lossy(&DEMO_HTML).to_string())?;
-
-    println!("All done. Open the output folder with a web server to try a demo.");
     Ok(())
 }
 
