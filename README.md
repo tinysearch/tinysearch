@@ -5,9 +5,7 @@
 This is a lightweight, fast, full-text search engine for static websites. I'm
 using it on [my blog](https://endler.dev/2019/tinysearch/):
 
-<p align="center"> 
-<img src="tinysearch.gif">
-</p>
+![Demo](tinysearch.gif)
 
 It is a Rust/WASM port of the Python code from the article ["Writing a full-text
 search engine using Bloom
