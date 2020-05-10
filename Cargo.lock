@@ -581,9 +581,9 @@ checksum = "c0ac13cf43739a6800e5ef9865a4c73cbbc9e5a0d1314a4765c12e0b41659adc"
 
 [[package]]
 name = "serde_derive"
-version = "1.0.109"
+version = "1.0.110"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7131e45bb89910e39d5b22bcd74c1c4378b7b9b2bf9481600e2f741dcd92817e"
+checksum = "818fbf6bfa9a42d3bfcaca148547aa00c7b915bec71d1757aa2d44ca68771984"
 dependencies = [
  "proc-macro2",
  "quote",
