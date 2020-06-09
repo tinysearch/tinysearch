@@ -12,7 +12,7 @@ homepage = "https://github.com/mre/tinysearch"
 structopt = "0.3.14"
 tinysearch-shared = { path = "../shared", version = "0.2.1" }
 log = "0.4.8"
-serde_json = "1.0.53"
+serde_json = "1.0.54"
 tinysearch-cuckoofilter = "0.4.1"
 failure = "0.1.8"
 tempdir = "0.3.7"
