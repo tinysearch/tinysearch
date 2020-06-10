@@ -72,4 +72,5 @@ jobs:
         uses: jerray/publish-docker-action@master
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }} 
+          password: ${{ secrets.DOCKER_PASSWORD }}
+          repository: lusotycoon/tinysearch
