@@ -74,3 +74,8 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           repository: lusotycoon/tinysearch
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: tinysearch
+          path: target/release/tinysearch
