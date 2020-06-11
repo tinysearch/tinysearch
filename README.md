@@ -69,6 +69,8 @@ Check out this [example file](fixtures/index.json)).
 tinysearch fixtures/index.json
 ```
 
+(You can take a look at the code examples for different static site generators [here](https://github.com/mre/tinysearch/tree/master/howto).)
+
 This will create a WASM module and the JavaScript glue code to integrate it into
 your homepage. You can open the `demo.html` from any webserver to see the
 result.
