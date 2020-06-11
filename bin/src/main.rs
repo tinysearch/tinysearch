@@ -16,7 +16,7 @@ use structopt::StructOpt;
 
 use failure::{Error, ResultExt};
 use lazy_static::lazy_static;
-use tempdir::TempDir;
+use tempfile::tempdir;
 
 use fs::File;
 use index::Posts;
@@ -71,7 +71,7 @@ fn main() -> Result<(), Error> {
     trace!("{:#?}", posts);
     storage::gen(posts)?;
 
-    let temp_dir = TempDir::new("wasm")?;
+    let temp_dir = tempdir()?;
     println!("Extracting tinysearch WASM engine");
     extract_engine(&temp_dir.path())?;
     debug!("Crate content extracted to {:?}/", &temp_dir);
