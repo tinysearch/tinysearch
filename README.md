@@ -87,6 +87,11 @@ For advanced usage options, try
 tinysearch --help
 ```
 
+Build index using docker container
+```
+docker run -it -v /index/src/:/data lusotycoon:tinysearch /tinysearch /data/index.json -p /data
+```
+
 ## Maintainers
 
 * Matthias Endler (@mre)
