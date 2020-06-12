@@ -65,7 +65,7 @@ pub fn generate_filters(
     for (name, words) in split_posts {
         // Adding some more padding to the capacity because sometimes there is an error
         // about not having enough space. Not sure why that happens, though.
-        let mut filter = CuckooFilter::with_capacity(words.len() + 10);
+        let mut filter = CuckooFilter::with_capacity(words.len() + 50);
         for word in words {
             trace!("{}", word);
             filter.add(&word)?;
