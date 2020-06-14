@@ -3,7 +3,7 @@
 #   - binaryen
 #   - wasm-pack
 #   - terser
-FROM rust:1.44-alpine as binary-build
+FROM rust:alpine as binary-build
 
 WORKDIR /tmp
 
@@ -12,11 +12,8 @@ RUN apk add --update --no-cache --virtual build-dependencies musl-dev openssl-de
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH \
-    RUST_VERSION=1.44.0 \
     BINARYEN="https://github.com/WebAssembly/binaryen/releases/download/version_93/binaryen-version_93-x86_64-linux.tar.gz"
 
-RUN rustup install $RUST_VERSION
-RUN rustup override set $RUST_VERSION
 RUN rustup target add asmjs-unknown-emscripten --toolchain $RUST_VERSION
 RUN rustup target add wasm32-unknown-emscripten --toolchain $RUST_VERSION
 
