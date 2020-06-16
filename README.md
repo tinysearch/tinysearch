@@ -90,9 +90,9 @@ tinysearch --help
 ```
 
 Please check what's required to [host WebAssembly in production](https://rustwasm.github.io/book/reference/deploying-to-production.html) -- you will need to explicitly set mime gzip types
-## DOCKER
+## Docker
 
-### BUILD
+### Build
 Available buid args:
  - WASM_REPO
  - WASM_BRANCH
