@@ -99,11 +99,9 @@ Available buid args:
  - TINY_REPO
  - TINY_BRANCH
  - TINY_MAGIC (for a magic number see https://github.com/mre/tinysearch/issues/111)
+
 ```
-docker build --build-arg WASM_BRANCH=master -t tinysearch .
-```
-```
-docker build --build-arg TINY_MAGIC=64 -t tinysearch .
+docker build --build-arg WASM_BRANCH=master --build-arg TINY_MAGIC=64 -t tinysearch .
 ```
 
 ## Maintainers
