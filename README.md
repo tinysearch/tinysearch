@@ -78,7 +78,7 @@ result.
 For example, Python has a built-in webserver for testing:
 
 ```
-python -m SimpleHTTPServer
+python3 -m http.server 
 ```
 
 then browse to http://0.0.0.0:8000/demo.html to see the result.
