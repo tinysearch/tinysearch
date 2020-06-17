@@ -59,4 +59,4 @@ COPY --from=binary-build /usr/local/bin/ /usr/local/bin/
 COPY --from=binary-build /usr/local/cargo/bin/ /usr/local/bin/
 COPY --from=binary-build /usr/bin/terser /usr/local/bin/
 
-CMD ["tinysearch"]
+ENTRYPOINT ["tinysearch"]
