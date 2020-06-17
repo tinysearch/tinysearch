@@ -41,7 +41,7 @@ RUN time cargo install --force --git "$WASM_REPO" --branch "$WASM_BRANCH"
 RUN cd /tmp && git clone --branch "$TINY_BRANCH" "$TINY_REPO"
 
 # https://github.com/tinysearch/tinysearch/issues/111
-RUN set -eux -o pipefail; cd /tmp/tinysearch && if ! [[ -z $TINY_MAGIC ]]; then sed -i.bak bin/src/storage.rs -e "s/let mut filter = CuckooFilter::with_capacity(words.len() + 10);/let mut filter = CuckooFilter::with_capacity(words.len() + $TINY_MAGIC);/g";fi && cargo build --release && cp target/release/tinysearch $CARGO_HOME/bin && echo $TINY_MAGIC |tee /.tinymagic
+RUN set -ex -o pipefail; cd /tmp/tinysearch && if ! [[ -z $TINY_MAGIC ]]; then sed -i.bak bin/src/storage.rs -e "s/let mut filter = CuckooFilter::with_capacity(words.len() + 10);/let mut filter = CuckooFilter::with_capacity(words.len() + $TINY_MAGIC);/g";fi && cargo build --release && cp target/release/tinysearch $CARGO_HOME/bin && echo $TINY_MAGIC |tee /.tinymagic
 
 RUN wasm-pack --version
 RUN tinysearch --version
