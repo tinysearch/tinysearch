@@ -103,7 +103,7 @@ Available buid args:
 #### Demo
 ```
 wget https://raw.githubusercontent.com/tinysearch/tinysearch/master/fixtures/index.json
-docker run -it -v $PWD:/tmp test tinysearch /tmp/index.json
+docker run -it -v $PWD:/tmp tinysearch tinysearch /tmp/index.json
 ```
 ```
 docker build --build-arg WASM_BRANCH=master --build-arg TINY_MAGIC=64 -t tinysearch .
