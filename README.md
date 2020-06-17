@@ -105,8 +105,15 @@ Available buid args:
 wget https://raw.githubusercontent.com/tinysearch/tinysearch/master/fixtures/index.json
 docker run -it -v $PWD:/tmp tinysearch tinysearch /tmp/index.json
 ```
+
+Custom repo/branch build
 ```
 docker build --build-arg WASM_BRANCH=master --build-arg TINY_MAGIC=64 -t tinysearch .
+```
+
+By default most recent stable alpine rust image is used. To get nightly just run
+```
+docker build --build-arg RUST_IMAGE=rustlang/rust:nightly-alpine -t tinysearch:nightly .
 ```
 
 ## Maintainers
