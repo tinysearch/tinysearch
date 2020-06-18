@@ -2,22 +2,30 @@
 
 ![CI](https://github.com/mre/tinysearch/workflows/CI/badge.svg)
 
-This is a lightweight, fast, full-text search engine for static websites. I'm
-using it on [my blog](https://endler.dev/2019/tinysearch/):
+TinySearch is a lightweight, fast, full-text search engine. It is designed for static websites.
+
+TinySearch is written in Rust, and then compiled to WebAssembly to run in the browser.  
+It can be used together with static site generators such as [Jekyll](https://jekyllrb.com/),
+[Hugo](https://gohugo.io/), [zola](https://www.getzola.org/),
+[Cobalt](https://github.com/cobalt-org/cobalt.rs), or [Pelican](https://getpelican.com).
 
 ![Demo](tinysearch.gif)
 
-It is a Rust/WASM port of the Python code from the article ["Writing a full-text
-search engine using Bloom
-filters"](https://www.stavros.io/posts/bloom-filter-search-engine/). This can be
-seen as an alternative to [lunr.js](https://lunrjs.com/) and
-[elasticlunr](http://elasticlunr.com/).
+## How it works
 
-The idea is to generate a small, self-contained WASM module from a list of
-articles on your website and ship it to browsers. tinysearch can be integrated
-into the build process of generators like [Jekyll](https://jekyllrb.com/),
-[Hugo](https://gohugo.io/), [zola](https://www.getzola.org/), or
-[Cobalt](https://github.com/cobalt-org/cobalt.rs).
+tinysearch is a Rust/WASM port of the Python code from the article ["Writing a full-text
+search engine using Bloom filters"](https://www.stavros.io/posts/bloom-filter-search-engine/).
+It can be seen as an alternative to [lunr.js](https://lunrjs.com/) and
+[elasticlunr](http://elasticlunr.com/), which are quite heavy for smaller websites and
+require a lot of JavaScript.  
+
+The idea of tinysearch is to generate a small, self-contained WASM module from a list of
+articles on your website and run it directly on the frontend inside browsers. 
+
+## Users
+
+* [Matthias Endler's personal blog](https://endler.dev/2019/tinysearch/)
+* Are you using tinysearch, too? Add your site here!
 
 ## Limitations
 
@@ -89,10 +97,14 @@ For advanced usage options, try
 tinysearch --help
 ```
 
-Please check what's required to [host WebAssembly in production](https://rustwasm.github.io/book/reference/deploying-to-production.html) -- you will need to explicitly set mime gzip types
+Please check what's required to [host WebAssembly in production](https://rustwasm.github.io/book/reference/deploying-to-production.html) -- you will need to explicitly set mime gzip types.
+
 ## Docker
 
+If a full Rust setup, you can also use our nightly-built Docker images.
+
 ### Build
+
 Available buid args:
  - WASM_REPO
  - WASM_BRANCH
@@ -101,6 +113,7 @@ Available buid args:
  - TINY_MAGIC (for a magic number see https://github.com/mre/tinysearch/issues/111)
 
 #### Demo
+
 ```
 wget https://raw.githubusercontent.com/tinysearch/tinysearch/master/fixtures/index.json
 docker run $PWD:/tmp tinysearch/cli index.json
@@ -120,6 +133,7 @@ docker build --build-arg RUST_IMAGE=rustlang/rust:nightly-alpine -t tinysearch/c
 
 * Matthias Endler (@mre)
 * Jorge-Luis Betancourt (@jorgelbg)
+* Mad Mike (@fluential)
 
 ## License
 
