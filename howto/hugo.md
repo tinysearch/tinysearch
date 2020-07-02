@@ -2,35 +2,14 @@
 
 To do it natively you build a template and adding it as "export" format
 
-`layouts/_default/baseof.json.json`:
-
-```
-[
-  {{ block "response" .}}{{ end }}
-]
-```
-
 `layouts/_default/list.json.json`:
 
 ```
-{{ define "response" }}
 [
-  {{ range $index, $e := .Data.Pages }}
-  {{ if $index }}, {{ end }}{{ .Render "item" }}
-  {{ end }}
+  {{ range $index , $e := .Site.RegularPages }}{{ if $index }}, {{end}}{{ dict "title" .Title "url" .Permalink "body" .Plain | jsonify }}{{end}}
 ]
-{{ end }}
 ```
 
-`layouts/_default/item.json.json`:
-
-```
-{
-  "title": "{{ .Title }}",
-  "url" : "{{ .Permalink }}",
-  "body" : "{{ .PlainWords }}"
-}
-```
 
 `config.toml`:
 
@@ -38,7 +17,7 @@ To do it natively you build a template and adding it as "export" format
 # ...
 
 [outputs]
-    home = ["json"] # Index everything
+    home = ["html","rss","json"] # Add json to the list
 
 # ...
 ```
@@ -49,4 +28,4 @@ See https://forestry.io/blog/build-a-json-api-with-hugo/ for more info.
 
 # Credits
 
-Tutorial created by [@Lusitaniae](https://github.com/Lusitaniae).
+Tutorial created by [@Lusitaniae](https://github.com/Lusitaniae) edited by [@lord-re](https://github.com/lord-re).
