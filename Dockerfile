@@ -59,4 +59,10 @@ COPY --from=binary-build /usr/local/bin/ /usr/local/bin/
 COPY --from=binary-build /usr/local/cargo/bin/ /usr/local/bin/
 COPY --from=binary-build /usr/bin/terser /usr/local/bin/
 
+# crate cache init. No need to download crate for futur usage
+RUN set -eux -o pipefail; \
+    echo '[{"title":"","body":"","url":""}]' > build.json; \
+    tinysearch build.json; \
+    rm -rf /tmp/*
+
 ENTRYPOINT ["tinysearch"]
