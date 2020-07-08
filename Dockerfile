@@ -50,7 +50,7 @@ FROM $RUST_IMAGE
 
 WORKDIR /tmp
 
-RUN apk add --update --no-cache libc6-compat musl-dev
+RUN apk add --update --no-cache libc6-compat musl-dev binaryen
 
 RUN set -eux -o pipefail; \
     ln -s /lib64/ld-linux-x86-64.so.2 /lib/ld64.so.1;
