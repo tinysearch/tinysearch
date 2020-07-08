@@ -1,4 +1,4 @@
-use failure::Error;
+use anyhow::Error;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{HashMap, HashSet};
 use std::fs;

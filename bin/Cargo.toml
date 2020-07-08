@@ -14,7 +14,7 @@ tinysearch-shared = { path = "../shared", version = "0.2.1" }
 log = "0.4.8"
 serde_json = "1.0.55"
 tinysearch-cuckoofilter = "0.4.1"
-failure = "0.1.8"
+anyhow = "1.0"
 tempfile = "3.1.0"
 serde = "1.0.112"
 serde_derive = "1.0.112"
