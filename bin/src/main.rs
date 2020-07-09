@@ -8,14 +8,13 @@ mod index;
 mod storage;
 mod strip_markdown;
 
+use anyhow::{Context, Error, Result};
+use lazy_static::lazy_static;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::{env, fs};
 use structopt::StructOpt;
-
-use failure::{Error, ResultExt};
-use lazy_static::lazy_static;
 use tempfile::tempdir;
 
 use fs::File;
@@ -125,6 +124,6 @@ pub fn run_output(cmd: &mut Command) -> Result<String, Error> {
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).into_owned())
     } else {
-        failure::bail!("failed to execute {:?}\nstatus: {}", cmd, output.status)
+        anyhow::bail!("failed to execute {:?}\nstatus: {}", cmd, output.status)
     }
 }
