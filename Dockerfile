@@ -20,7 +20,7 @@ ARG TINY_MAGIC
 
 WORKDIR /tmp
 
-RUN apk add --update --no-cache --virtual build-dependencies musl-dev openssl-dev gcc curl git npm gcc ca-certificates libc6-compat
+RUN apk add --update --no-cache --virtual build-dependencies musl-dev openssl-dev gcc curl git npm gcc ca-certificates libc6-compat binaryen
 
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
@@ -32,16 +32,14 @@ ENV RUSTUP_HOME=/usr/local/rustup \
 
 RUN set -eux -o pipefail; \
     ln -s /lib64/ld-linux-x86-64.so.2 /lib/ld64.so.1; \
-    npm install terser -g; \
-    curl -sL https://api.github.com/repos/WebAssembly/binaryen/releases/latest|grep tarball|awk '{print $2}'|sed 's/,//g'|xargs curl -sL |tar zxp ; \
-    cp -rp WebAssembly-binaryen*/* /usr/local/bin/.
+    npm install terser -g;
 
 RUN time cargo install --force --git "$WASM_REPO" --branch "$WASM_BRANCH"
 
 RUN cd /tmp && git clone --branch "$TINY_BRANCH" "$TINY_REPO"
 
 # https://github.com/tinysearch/tinysearch/issues/111
-RUN set -ex -o pipefail; cd /tmp/tinysearch && if ! [[ -z $TINY_MAGIC ]]; then sed -i.bak bin/src/storage.rs -e "s/let mut filter = CuckooFilter::with_capacity(words.len() + 10);/let mut filter = CuckooFilter::with_capacity(words.len() + $TINY_MAGIC);/g";fi && cargo build --release && cp target/release/tinysearch $CARGO_HOME/bin && echo $TINY_MAGIC |tee /.tinymagic
+RUN set -ex -o pipefail; cd /tmp/tinysearch && if ! [[ -z $TINY_MAGIC ]]; then sed -i.bak bin/src/storage.rs -e "s/let mut filter = CuckooFilter::with_capacity(words.len() + .*);/let mut filter = CuckooFilter::with_capacity(words.len() + $TINY_MAGIC);/g";fi && cargo build --release && cp target/release/tinysearch $CARGO_HOME/bin && echo $TINY_MAGIC |tee /.tinymagic
 
 RUN wasm-pack --version
 RUN tinysearch --version
