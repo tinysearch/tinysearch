@@ -71,7 +71,7 @@ cargo install tinysearch
 ## Usage
 
 As an input, we require a JSON file, which contains the content to index.
-Check out this [example file](fixtures/index.json)).
+Check out this [example file](fixtures/index.json).
 
 ```
 tinysearch fixtures/index.json
