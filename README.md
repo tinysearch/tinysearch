@@ -25,6 +25,7 @@ articles on your website and run it directly on the frontend inside browsers.
 ## Users
 
 * [Matthias Endler's personal blog](https://endler.dev/2019/tinysearch/)
+* [OutOfCheeseError](https://out-of-cheese-error.netlify.app/)
 * Are you using tinysearch, too? Add your site here!
 
 ## Limitations
