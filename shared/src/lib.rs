@@ -1,6 +1,6 @@
 use bincode::Error as BincodeError;
+use cuckoofilter::{self, CuckooFilter, ExportedCuckooFilter};
 use std::convert::From;
-use tinysearch_cuckoofilter::{self, CuckooFilter, ExportedCuckooFilter};
 
 use std::collections::hash_map::DefaultHasher;
 
