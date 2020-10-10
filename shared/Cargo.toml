@@ -8,4 +8,8 @@ license = "Apache-2.0/MIT"
 
 [dependencies]
 bincode = "1.2.1"
-tinysearch-cuckoofilter = "0.4.1"
+
+[dependencies.cuckoofilter]
+version = "0.5.0"
+default-features = false 
+features = ["serde_support"]

@@ -94,6 +94,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "cuckoofilter"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b810a8449931679f64cd7eef1bbd0fa315801b6d5d9cdc1ace2804d6529eee18"
+dependencies = [
+ "byteorder",
+ "fnv",
+ "rand 0.7.3",
+ "serde",
+ "serde_bytes",
+ "serde_derive",
+]
+
+[[package]]
 name = "farmhash"
 version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -261,9 +275,9 @@ checksum = "74490b50b9fbe561ac330df47c08f3f33073d2d00c150f719147d7c54522fa1b"
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.9"
+version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c09721c6781493a2a492a96b5a5bf19b65917fe6728884e7c44dd0c60ca3435"
+checksum = "1e0704ee1a7e00d7bb417d0770ea303c1bccbabf0ef1667dae92b5967f5f8a71"
 dependencies = [
  "unicode-xid",
 ]
@@ -477,15 +491,27 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.112"
+version = "1.0.116"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "736aac72d1eafe8e5962d1d1c3d99b0df526015ba40915cb3c49d042e92ec243"
+checksum = "96fe57af81d28386a513cbc6858332abc6117cfdb5999647c6444b8f43a370a5"
+dependencies = [
+ "serde_derive",
+]
+
+[[package]]
+name = "serde_bytes"
+version = "0.11.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16ae07dd2f88a366f15bd0632ba725227018c69a1c8550a927324f8eb8368bb9"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "serde_derive"
-version = "1.0.112"
+version = "1.0.116"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf0343ce212ac0d3d6afd9391ac8e9c9efe06b533c8d33f660f6390cc4093f57"
+checksum = "f630a6370fd8e457873b4bd2ffdae75408bc291ba72be773772a4c2a065d9ae8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -511,9 +537,9 @@ checksum = "0b8de496cf83d4ed58b6be86c3a275b8602f6ffe98d3024a869e124147a9a3ac"
 
 [[package]]
 name = "syn"
-version = "1.0.16"
+version = "1.0.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "123bd9499cfb380418d509322d7a6d52e5315f064fe4b3ad18a53d6b92c07859"
+checksum = "1e2e59c50ed8f6b050b071aa7b6865293957a9af6b58b94f97c1c9434ad440ea"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -540,6 +566,7 @@ version = "0.4.1"
 dependencies = [
  "anyhow",
  "argh",
+ "cuckoofilter",
  "includedir",
  "includedir_codegen",
  "lazy_static",
@@ -550,7 +577,6 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "tempfile",
- "tinysearch-cuckoofilter 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tinysearch-shared",
 ]
 
@@ -568,23 +594,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "tinysearch-cuckoofilter"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f0aa94f75da999988421edfc319e02d92bd6f0b82c8a07db9b39df0767d5b11"
-dependencies = [
- "byteorder",
- "rand 0.6.5",
- "serde",
- "serde_derive",
-]
-
-[[package]]
 name = "tinysearch-shared"
 version = "0.2.1"
 dependencies = [
  "bincode",
- "tinysearch-cuckoofilter 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "cuckoofilter",
 ]
 
 [[package]]
