@@ -70,8 +70,8 @@ pub fn generate_filters(
             trace!("{}", word);
             filter.add(&word)?;
         }
-        for word in name.0.split_whitespace() {
-            filter.add(&cleanup(strip_markdown(word)))?;
+        for word in name.0.split_whitespace().map(str::to_lowercase) {
+            filter.add(&cleanup(strip_markdown(&word)))?;
         }
         filters.push((name, filter));
     }
