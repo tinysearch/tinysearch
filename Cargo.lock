@@ -99,12 +99,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "farmhash"
-version = "1.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f35ce9c8fb9891c75ceadbc330752951a4e369b50af10775955aeb9af3eee34b"
-
-[[package]]
 name = "flate2"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -459,19 +453,6 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tinysearch-shared",
-]
-
-[[package]]
-name = "tinysearch-cuckoofilter"
-version = "0.4.1"
-dependencies = [
- "byteorder",
- "farmhash",
- "fnv",
- "rand",
- "serde",
- "serde_derive",
- "serde_json",
 ]
 
 [[package]]
