@@ -6,12 +6,12 @@ mod storage;
 mod strip_markdown;
 
 use anyhow::{Context, Error, Result};
+use argh::FromArgs;
 use lazy_static::lazy_static;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::{env, fs};
-use argh::FromArgs;
 use tempfile::tempdir;
 
 use fs::File;
