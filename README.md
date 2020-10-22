@@ -78,7 +78,7 @@ Check out this [example file](fixtures/index.json).
 tinysearch fixtures/index.json
 ```
 
-ℹ️ You can take a look at the code examples for different static site generators [here](https://github.com/mre/tinysearch/tree/master/howto).
+ℹ️ You can take a look at the code examples for different static site generators [here](https://github.com/mre/tinysearch/tree/master/howto).  
 ℹ️ The `body` field in the JSON document is optional and can be skipped to just index post titles.
 
 This will create a WASM module and the JavaScript glue code to integrate it into
