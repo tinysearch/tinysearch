@@ -118,7 +118,7 @@ Available buid args:
 
 ```
 wget https://raw.githubusercontent.com/tinysearch/tinysearch/master/fixtures/index.json
-docker run $PWD:/tmp tinysearch/cli index.json
+docker run -v $PWD:/tmp tinysearch/cli index.json
 ```
 
 Custom repo/branch build
