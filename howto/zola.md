@@ -1,11 +1,10 @@
 # Building the search index with Zola
 
-
 1. Create a template, which iterates over all pages and creates our JSON structure.
 
 `templates/json.html`:
 
-```
+```liquid
 {% set section = get_section(path="_index.md") %}
 
 [
