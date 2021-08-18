@@ -39,17 +39,22 @@
     // And afterwards we can use all the functionality defined in wasm.
     function doSearch() {
       let value = document.getElementById("demo").value;
-      const arr = search(value, 10);
+      console.log(`Search query: ${value}`);
+
+      const results = search(value, 5);
+
+      console.log(`Results: ${results}`);
+
       let ul = document.getElementById("results");
       ul.innerHTML = "";
 
-      for (i = 0; i < arr.length; i++) {
+      for (i = 0; i < results.length; i++) {
         var li = document.createElement("li");
 
-        let elem = arr[i];
+        let [title, url] = results[i];
         let elemlink = document.createElement('a');
-        elemlink.innerHTML = elem[0];
-        elemlink.setAttribute('href', elem[1]);
+        elemlink.innerHTML = title;
+        elemlink.setAttribute('href', url);
         li.appendChild(elemlink);
 
         ul.appendChild(li);
@@ -57,9 +62,9 @@
     }
   </script>
 
-  <h2>Search:</h2>
+  <h2>Search</h2>
   <input type="text" id="demo" onkeyup="doSearch()">
-  <h2>Results:</h2>
+  <h2>Results</h2>
   <ul id="results">
   </ul>
 </body>
