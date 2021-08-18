@@ -39,21 +39,20 @@ fn tokenize(words: &str, stopwords: &HashSet<String>) -> HashSet<String> {
 
 // Read all posts and generate Bloomfilters from them.
 #[no_mangle]
-pub fn generate_filters(posts: HashMap<PostId, String>) -> Result<Filters, Error> {
+pub fn generate_filters(posts: HashMap<PostId, Option<String>>) -> Result<Filters, Error> {
     // Create a dictionary of {"post name": "lowercase word set"}. split_posts =
     // {name: set(re.split("\W+", contents.lower())) for name, contents in
     // posts.items()}
     debug!("Generate filters");
 
-    let bytes = include_bytes!("../assets/stopwords");
-    let stopwords = String::from_utf8(bytes.to_vec())?;
+    let stopwords: &str = include_str!("../assets/stopwords");
     let stopwords: HashSet<String> = stopwords.split_whitespace().map(String::from).collect();
 
-    let split_posts: HashMap<PostId, HashSet<String>> = posts
+    let split_posts: HashMap<PostId, Option<HashSet<String>>> = posts
         .into_iter()
         .map(|(post, content)| {
             debug!("Generating {:?}", post);
-            (post, tokenize(&content, &stopwords))
+            (post, content.map(|content| tokenize(&content, &stopwords)))
         })
         .collect();
 
@@ -62,20 +61,24 @@ pub fn generate_filters(posts: HashMap<PostId, String>) -> Result<Filters, Error
     // words (a, the, etc), but we’re going for naive, so let’s just create the
     // filters for now:
     let mut filters = Vec::new();
-    for (name, words) in split_posts {
+    for (post_id, body) in split_posts {
         // Also add title to filter
-        let title: HashSet<String> = tokenize(&name.0, &stopwords);
-        let words: Vec<String> = words.union(&title).cloned().collect();
-        let filter = HashProxy::from(&words);
-        filters.push((name, filter));
+        let title: HashSet<String> = tokenize(&post_id.0, &stopwords);
+        let content: Vec<String> = if let Some(body) = body {
+            body.union(&title).cloned().collect()
+        } else {
+            title.into_iter().collect()
+        };
+        let filter = HashProxy::from(&content);
+        filters.push((post_id, filter));
     }
     trace!("Done");
     Ok(filters)
 }
 
 // prepares the files in the given directory to be consumed by the generator
-pub fn prepare_posts(posts: Posts) -> HashMap<PostId, String> {
-    let mut prepared: HashMap<PostId, String> = HashMap::new();
+pub fn prepare_posts(posts: Posts) -> HashMap<PostId, Option<String>> {
+    let mut prepared: HashMap<PostId, Option<String>> = HashMap::new();
     for post in posts {
         debug!("Analyzing {}", post.url);
         prepared.insert((post.title, post.url), post.body);
@@ -97,7 +100,7 @@ mod tests {
                 "Maybe You Don't Need Kubernetes, Or Excel - You Know".to_string(),
                 "".to_string(),
             ),
-            "".to_string(),
+            None,
         );
         let filters = generate_filters(posts).unwrap();
         assert_eq!(filters.len(), 1);

@@ -71,7 +71,8 @@ Once you created the index, you can run
 tinysearch fixtures/index.json
 ```
 
-(You can take a look at the code examples for different static site generators [here](https://github.com/mre/tinysearch/tree/master/howto).)
+ℹ️ You can take a look at the code examples for different static site generators [here](https://github.com/mre/tinysearch/tree/master/howto).  
+ℹ️ The `body` field in the JSON document is optional and can be skipped to just index post titles.
 
 This will create a WASM module and the JavaScript glue code to integrate it into
 your homepage. You can open the `demo.html` from any webserver to see the
@@ -111,7 +112,7 @@ Available buid args:
 
 ```
 wget https://raw.githubusercontent.com/tinysearch/tinysearch/master/fixtures/index.json
-docker run $PWD:/tmp tinysearch/cli index.json
+docker run -v $PWD:/tmp tinysearch/cli index.json
 ```
 
 Custom repo/branch build
