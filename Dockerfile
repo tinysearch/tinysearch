@@ -2,8 +2,8 @@
 #   - binaryen
 #   - wasm-pack
 #   - terser
-# For nightly rust toolset use build arg RUST_IMAGE=rustlang/rust:nightly-alpine
-#
+# For nightly Rust toolset, use build arg `RUST_IMAGE=rustlang/rust:nightly-alpine`
+
 ARG WASM_REPO=https://github.com/mre/wasm-pack.git
 ARG WASM_BRANCH=first-class-bins
 ARG TINY_REPO=https://github.com/tinysearch/tinysearch
@@ -16,7 +16,6 @@ ARG WASM_REPO
 ARG WASM_BRANCH
 ARG TINY_REPO
 ARG TINY_BRANCH
-ARG TINY_MAGIC
 
 WORKDIR /tmp
 
@@ -38,9 +37,6 @@ RUN time cargo install --force --git "$WASM_REPO" --branch "$WASM_BRANCH"
 
 RUN cd /tmp && git clone --branch "$TINY_BRANCH" "$TINY_REPO"
 
-# https://github.com/tinysearch/tinysearch/issues/111
-RUN set -ex -o pipefail; cd /tmp/tinysearch && if ! [[ -z $TINY_MAGIC ]]; then sed -i.bak bin/src/storage.rs -e "s/let mut filter = CuckooFilter::with_capacity(words.len() + .*);/let mut filter = CuckooFilter::with_capacity(words.len() + $TINY_MAGIC);/g";fi && cargo build --release && cp target/release/tinysearch $CARGO_HOME/bin && echo $TINY_MAGIC |tee /.tinymagic
-
 RUN wasm-pack --version
 RUN tinysearch --version
 
@@ -57,7 +53,7 @@ COPY --from=binary-build /usr/local/bin/ /usr/local/bin/
 COPY --from=binary-build /usr/local/cargo/bin/ /usr/local/bin/
 COPY --from=binary-build /usr/bin/terser /usr/local/bin/
 
-# crate cache init. No need to download crate for futur usage
+# crate cache init. No need to download crate for future usage
 RUN set -eux -o pipefail; \
     echo '[{"title":"","body":"","url":""}]' > build.json; \
     tinysearch build.json; \
