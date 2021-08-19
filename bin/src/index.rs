@@ -1,8 +1,10 @@
+use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Post {
     pub title: String,
     pub url: String,
-    pub body: String,
+    pub body: Option<String>,
 }
 
 pub type Posts = Vec<Post>;

@@ -10,11 +10,11 @@ lint: ### Lint project using clippy
 	cargo clippy
 
 .PHONY: clean
-clean: ### Clean up project artifacts
+clean: ### Clean up build artifacts
 	cargo clean
 
 .PHONY: build
-build: ### Build project
+build: ### Compile project
 	cargo build
 
 .PHONY: install
@@ -22,7 +22,7 @@ install: ## Install tinysearch
 	cargo install --force --path bin 
 
 .PHONY: test
-test: ## Run unittests
+test: ## Run unit tests
 	cargo test
 
 .PHONY: run

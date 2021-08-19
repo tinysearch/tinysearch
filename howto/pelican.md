@@ -1,11 +1,10 @@
 # Building the search index with Pelican
 
-
 1. Create a template, which iterates over all articles and creates our JSON structure.
 
 `templates/json.html`:
 
-``` jinja
+```jinja
 [
 {%- for article in articles -%}
 {% if article.status != "draft" %}
