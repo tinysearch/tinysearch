@@ -1,13 +1,11 @@
-#[macro_use]
-extern crate lazy_static;
-
 use std::cmp::Reverse;
-use std::error::Error;
 use tinysearch_shared::{Filters, PostId, Score, Storage};
 use wasm_bindgen::prelude::*;
 
+use once_cell::sync::Lazy;
 use std::collections::hash_map::DefaultHasher;
 use xorf::{HashProxy, Xor8};
+
 pub type Filter = HashProxy<String, DefaultHasher, Xor8>;
 
 #[global_allocator]
@@ -15,14 +13,10 @@ static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
 
 const TITLE_WEIGHT: usize = 3;
 
-fn load_filters() -> Result<Filters, Box<dyn Error>> {
+static FILTERS: Lazy<Filters> = Lazy::new(|| {
     let bytes = include_bytes!("../storage");
-    Ok(Storage::from_bytes(bytes)?.filters)
-}
-
-lazy_static! {
-    static ref FILTERS: Filters = load_filters().unwrap();
-}
+    Storage::from_bytes(bytes).unwrap().filters
+});
 
 // Wrapper around filter score, that also scores the post title
 // Post title score has a higher weight than post body

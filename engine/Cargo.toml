@@ -12,8 +12,8 @@ homepage = "https://github.com/mre/tinysearch"
 crate-type = ["cdylib"]
 
 [dependencies]
-lazy_static = "1.4.0"
 wee_alloc = "0.4.5"
+once_cell = "1.8.0"
 
 [dependencies.tinysearch-shared]
 path = "../shared"

@@ -6,7 +6,6 @@ mod storage;
 
 use anyhow::{Context, Error, Result};
 use argh::FromArgs;
-use lazy_static::lazy_static;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -17,13 +16,11 @@ use fs::File;
 use index::Posts;
 
 // The search engine code gets statically included into the binary.
-// During indexation (when running tinysearch), this will be part of the WASM output.
+// During indexation (when running tinysearch), this will be compiled to WASM.
 include!(concat!(env!("OUT_DIR"), "/engine.rs"));
 
 // Include a bare-bones HTML page that demonstrates how tinysearch is used
-lazy_static! {
-    static ref DEMO_HTML: &'static [u8] = include_bytes!("../assets/demo.html");
-}
+static DEMO_HTML: &'static [u8] = include_bytes!("../assets/demo.html");
 
 #[derive(FromArgs)]
 /// A tiny, static search engine for static websites
@@ -67,11 +64,11 @@ fn main() -> Result<(), Error> {
     let out_path = PathBuf::from(opt.out_path.unwrap_or(PathBuf::from("."))).canonicalize()?;
 
     let posts: Posts = index::read(fs::read_to_string(opt.index)?)?;
-    trace!("{:#?}", posts);
-    storage::gen(posts)?;
+    trace!("Generating storage from posts: {:#?}", posts);
+    storage::write(posts)?;
 
     let temp_dir = tempdir()?;
-    println!("Unpacking tinysearch WASM engine");
+    println!("Unpacking tinysearch WASM engine into temporary directory");
     unpack_engine(&temp_dir.path())?;
     debug!("Crate content extracted to {:?}/", &temp_dir);
 
@@ -85,9 +82,12 @@ fn main() -> Result<(), Error> {
         optimize(&out_path)?;
     }
 
-    fs::write("demo.html", String::from_utf8_lossy(&DEMO_HTML).to_string())?;
+    fs::write(
+        &out_path.join("demo.html"),
+        String::from_utf8_lossy(&DEMO_HTML).to_string(),
+    )?;
 
-    println!("All done. Open the output folder with a web server to try a demo.");
+    println!("All done! Open the output folder with a web server to try the demo.");
     Ok(())
 }
 
@@ -120,10 +120,10 @@ pub fn run_output(cmd: &mut Command) -> Result<String, Error> {
     let output = cmd
         .stderr(Stdio::inherit())
         .output()
-        .context(format!("failed to run {:?}", cmd))?;
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
-    } else {
+        .with_context(|| format!("failed to run {:?}", cmd))?;
+
+    if !output.status.success() {
         anyhow::bail!("failed to execute {:?}\nstatus: {}", cmd, output.status)
     }
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }

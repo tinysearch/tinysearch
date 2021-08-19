@@ -17,7 +17,6 @@ anyhow = "1.0.43"
 tempfile = "3.2.0"
 serde = { version = "1.0.127", features = ["derive"] }
 serde_derive = "1.0.127"
-lazy_static = "1.4.0"
 phf = "0.8.0"
 includedir = "0.6.0"
 strip_markdown = "0.2.0"
