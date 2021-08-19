@@ -20,7 +20,7 @@ use index::Posts;
 include!(concat!(env!("OUT_DIR"), "/engine.rs"));
 
 // Include a bare-bones HTML page that demonstrates how tinysearch is used
-static DEMO_HTML: &'static [u8] = include_bytes!("../assets/demo.html");
+static DEMO_HTML: &str = include_str!("../assets/demo.html");
 
 #[derive(FromArgs)]
 /// A tiny, static search engine for static websites
@@ -61,7 +61,10 @@ fn main() -> Result<(), Error> {
     FILES.set_passthrough(env::var_os("PASSTHROUGH").is_some());
 
     let opt: Opt = argh::from_env();
-    let out_path = PathBuf::from(opt.out_path.unwrap_or(PathBuf::from("."))).canonicalize()?;
+    let out_path = opt
+        .out_path
+        .unwrap_or_else(|| PathBuf::from("."))
+        .canonicalize()?;
 
     let posts: Posts = index::read(fs::read_to_string(opt.index)?)?;
     trace!("Generating storage from posts: {:#?}", posts);
@@ -69,7 +72,7 @@ fn main() -> Result<(), Error> {
 
     let temp_dir = tempdir()?;
     println!("Unpacking tinysearch WASM engine into temporary directory");
-    unpack_engine(&temp_dir.path())?;
+    unpack_engine(temp_dir.path())?;
     debug!("Crate content extracted to {:?}/", &temp_dir);
 
     println!("Copying index into crate");
@@ -82,17 +85,14 @@ fn main() -> Result<(), Error> {
         optimize(&out_path)?;
     }
 
-    fs::write(
-        &out_path.join("demo.html"),
-        String::from_utf8_lossy(&DEMO_HTML).to_string(),
-    )?;
+    fs::write(&out_path.join("demo.html"), DEMO_HTML)?;
 
     println!("All done! Open the output folder with a web server to try the demo.");
     Ok(())
 }
 
-fn wasm_pack(in_dir: &Path, out_dir: &PathBuf) -> Result<String, Error> {
-    Ok(run_output(
+fn wasm_pack(in_dir: &Path, out_dir: &Path) -> Result<String, Error> {
+    run_output(
         Command::new("wasm-pack")
             .arg("build")
             .arg(in_dir)
@@ -101,18 +101,18 @@ fn wasm_pack(in_dir: &Path, out_dir: &PathBuf) -> Result<String, Error> {
             .arg("--release")
             .arg("--out-dir")
             .arg(out_dir),
-    )?)
+    )
 }
 
-fn optimize(dir: &PathBuf) -> Result<String, Error> {
-    Ok(run_output(
+fn optimize(dir: &Path) -> Result<String, Error> {
+    run_output(
         Command::new("wasm-opt")
             .current_dir(dir)
             .arg("-Oz")
             .arg("-o")
             .arg("tinysearch_engine_bg.wasm")
             .arg("tinysearch_engine_bg.wasm"),
-    )?)
+    )
 }
 
 pub fn run_output(cmd: &mut Command) -> Result<String, Error> {
