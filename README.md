@@ -28,12 +28,23 @@ articles on your website and run it directly on the frontend inside browsers.
 * [OutOfCheeseError](https://out-of-cheese-error.netlify.app/)
 * Are you using tinysearch, too? Add your site here!
 
+Under the hood it uses a [Xor Filter](https://arxiv.org/abs/1912.08258) -- a
+datastructure for fast approximation of set membership that is smaller than
+bloom and cuckoo filters.  Each blog post gets converted into a filter that will
+then be serialized to a binary blob using
+[bincode](https://github.com/bincode-org/bincode).  Please not that the
+underlying technologies are subject to change.
+
 ## Limitations
 
-- Only searches for entire words. There are no search suggestions (yet).
+- Only searches for entire words. As a consequence there are no search
+  suggestions (yet).  This is a necessary tradeoff for reducing memory usage. A
+  trie datastructure was about 10x bigger than the xor filters.  New research on
+  compact datastructures for prefix searches might lift this limitation in the
+  future.
 - Since we bundle all search indices for all articles into one static binary, we
-  recommend to only use it for small- to medium-size websites. Expect around 4kB
-  (non-compressed) per article.
+  recommend to only use it for small- to medium-size websites. Expect around 4 kB
+  uncompressed per article (~2 kb compressed).
 
 ## Installation
 
