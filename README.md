@@ -124,7 +124,7 @@ Here is to quickly try tinysearch with Docker:
 
 ```sh
 # Download a sample blog index from endler.dev
-wget https://raw.githubusercontent.com/tinysearch/tinysearch/master/fixtures/index.json
+curl -O https://raw.githubusercontent.com/tinysearch/tinysearch/master/fixtures/index.json
 # Create the WASM output
 docker run -v $PWD:/tmp tinysearch/cli index.json
 ```
