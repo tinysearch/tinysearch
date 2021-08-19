@@ -1,13 +1,17 @@
 use bincode::Error as BincodeError;
-use cuckoofilter::{self, CuckooFilter, ExportedCuckooFilter};
+use serde::{Deserialize, Serialize};
 use std::convert::From;
+use xorf::{Filter, HashProxy, Xor8};
 
 use std::collections::hash_map::DefaultHasher;
 
-pub type PostId = (String, String);
-pub type Filters = Vec<(PostId, CuckooFilter<DefaultHasher>)>;
-type ExportedFilters = Vec<(PostId, ExportedCuckooFilter)>;
+type Title = String;
+type Url = String;
+pub type PostId = (Title, Url);
+pub type PostFilter = (PostId, HashProxy<String, DefaultHasher, Xor8>);
+pub type Filters = Vec<PostFilter>;
 
+#[derive(Serialize, Deserialize)]
 pub struct Storage {
     pub filters: Filters,
 }
@@ -19,44 +23,25 @@ impl From<Filters> for Storage {
 }
 
 pub trait Score {
-    fn score<A: AsRef<str>, I: IntoIterator<Item = A>>(&self, terms: I) -> u32;
+    fn score(&self, terms: &[String]) -> usize;
 }
 
-// the score is the number of terms from the query that are contained in the
+// the score denotes the number of terms from the query that are contained in the
 // current filter
-impl Score for CuckooFilter<DefaultHasher> {
-    fn score<A: AsRef<str>, I: IntoIterator<Item = A>>(&self, terms: I) -> u32 {
-        terms
-            .into_iter()
-            .filter(|term| self.contains(term.as_ref()))
-            .count() as u32
+impl Score for HashProxy<String, DefaultHasher, Xor8> {
+    fn score(&self, terms: &[String]) -> usize {
+        terms.iter().filter(|term| self.contains(term)).count()
     }
 }
 
 impl Storage {
     pub fn to_bytes(&self) -> Result<Vec<u8>, BincodeError> {
-        let encoded: Vec<u8> = bincode::serialize(&self.dehydrate())?;
+        let encoded: Vec<u8> = bincode::serialize(&self)?;
         Ok(encoded)
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, BincodeError> {
-        let decoded: ExportedFilters = bincode::deserialize(bytes)?;
-        Ok(Storage {
-            filters: Storage::hydrate(decoded),
-        })
-    }
-
-    fn dehydrate(&self) -> ExportedFilters {
-        self.filters
-            .iter()
-            .map(|(key, filter)| (key.clone(), filter.export()))
-            .collect()
-    }
-
-    fn hydrate(exported_filters: ExportedFilters) -> Filters {
-        exported_filters
-            .into_iter()
-            .map(|(key, exported)| (key, CuckooFilter::<DefaultHasher>::from(exported)))
-            .collect()
+        let decoded: Filters = bincode::deserialize(bytes)?;
+        Ok(Storage { filters: decoded })
     }
 }

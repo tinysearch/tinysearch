@@ -3,7 +3,6 @@ extern crate log;
 
 mod index;
 mod storage;
-mod strip_markdown;
 
 use anyhow::{Context, Error, Result};
 use argh::FromArgs;
@@ -17,20 +16,23 @@ use tempfile::tempdir;
 use fs::File;
 use index::Posts;
 
+// The search engine code gets statically included into the binary.
+// During indexation (when running tinysearch), this will be part of the WASM output.
 include!(concat!(env!("OUT_DIR"), "/engine.rs"));
 
+// Include a bare-bones HTML page that demonstrates how tinysearch is used
 lazy_static! {
     static ref DEMO_HTML: &'static [u8] = include_bytes!("../assets/demo.html");
 }
 
 #[derive(FromArgs)]
-/// Tiny Search
+/// A tiny, static search engine for static websites
 struct Opt {
     /// index JSON file to process
     #[argh(positional)]
     index: PathBuf,
 
-    /// output path for WASM module
+    /// output path for WASM module (local directory by default)
     #[argh(option, short = 'p', long = "path")]
     out_path: Option<PathBuf>,
 
@@ -39,7 +41,7 @@ struct Opt {
     optimize: bool,
 }
 
-fn extract_engine(temp_dir: &Path) -> Result<(), Error> {
+fn unpack_engine(temp_dir: &Path) -> Result<(), Error> {
     for file in FILES.file_names() {
         // This hack removes the "../" prefix that
         // gets introduced by including the crates
@@ -69,8 +71,8 @@ fn main() -> Result<(), Error> {
     storage::gen(posts)?;
 
     let temp_dir = tempdir()?;
-    println!("Extracting tinysearch WASM engine");
-    extract_engine(&temp_dir.path())?;
+    println!("Unpacking tinysearch WASM engine");
+    unpack_engine(&temp_dir.path())?;
     debug!("Crate content extracted to {:?}/", &temp_dir);
 
     println!("Copying index into crate");

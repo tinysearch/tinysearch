@@ -1,7 +1,7 @@
 [package]
 name = "tinysearch-engine"
 authors = ["Matthias Endler <matthias-endler@gmx.net>"]
-version = "0.2.2"
+version = "0.6.0"
 edition = "2018"
 description = "A tiny search engine for static websites"
 license = "Apache-2.0/MIT"
@@ -12,18 +12,19 @@ homepage = "https://github.com/mre/tinysearch"
 crate-type = ["cdylib"]
 
 [dependencies]
-bincode = "1.1.4"
-lazy_static = "1.3.0"
-wee_alloc = "0.4.4"
-tinysearch-shared = { path = "../shared", version = "0.2.0" }
+lazy_static = "1.4.0"
+wee_alloc = "0.4.5"
 
-[dependencies.cuckoofilter]
-version = "0.5.0"
+[dependencies.tinysearch-shared]
+path = "../shared"
+version = "0.6.0"
+
+[dependencies.xorf]
+version = "0.7.2"
 default-features = false 
-features = ["serde_support"]
 
 [dependencies.wasm-bindgen]
-version = "0.2.42"
+version = "0.2.75"
 features = ["serde-serialize"]
 
 [workspace]
