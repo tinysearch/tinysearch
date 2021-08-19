@@ -26,6 +26,11 @@ then be serialized to a binary blob using
 [bincode](https://github.com/bincode-org/bincode).  Please not that the
 underlying technologies are subject to change.
 
+## Is it tiny?
+
+The test index file of my blog with around 40 posts creates a WASM payload of 99kB (49kB gzipped, 40kB brotli).  
+That is smaller than the demo image above; so yes.
+
 ## Limitations
 
 - Only searches for entire words. As a consequence there are no search
