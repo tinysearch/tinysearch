@@ -1,11 +1,11 @@
-use std::cmp::Reverse;
-use tinysearch_shared::{Filters, PostId, Score, Storage};
-use wasm_bindgen::prelude::*;
-
 use once_cell::sync::Lazy;
-use std::collections::hash_map::DefaultHasher;
+use wasm_bindgen::prelude::*;
 use xorf::{HashProxy, Xor8};
 
+use std::cmp::Reverse;
+use std::collections::hash_map::DefaultHasher;
+
+use tinysearch_shared::{Filters, PostId, Score, Storage};
 pub type Filter = HashProxy<String, DefaultHasher, Xor8>;
 
 #[global_allocator]
