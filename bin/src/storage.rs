@@ -29,7 +29,7 @@ fn cleanup(s: String) -> String {
 }
 
 fn tokenize(words: &str, stopwords: &HashSet<String>) -> HashSet<String> {
-    cleanup(strip_markdown(&words))
+    cleanup(strip_markdown(words))
         .split_whitespace()
         .filter(|&word| !word.trim().is_empty())
         .map(str::to_lowercase)
