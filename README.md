@@ -111,37 +111,38 @@ Please check what's required to [host WebAssembly in production](https://rustwas
 
 If you don't have a full Rust setup, you can also use our nightly-built Docker images.
 
-### Build
+### Advanced Build Args
 
-Available buid args:
- - WASM_REPO
- - WASM_BRANCH
- - TINY_REPO
- - TINY_BRANCH
+ - `WASM_REPO`: Overwrite the wasm-pack repository
+ - `WASM_BRANCH`: Overwrite the repository branch to use
+ - `TINY_REPO`: Overwrite repository of tinysearch
+ - `TINY_BRANCH`: Overwrite tinysearch branch
 
 #### Demo
 
-```
+Here is to quickly try tinysearch with Docker:
+
+```sh
+# Download a sample blog index from endler.dev
 wget https://raw.githubusercontent.com/tinysearch/tinysearch/master/fixtures/index.json
+# Create the WASM output
 docker run -v $PWD:/tmp tinysearch/cli index.json
 ```
 
-Custom repo/branch build
-
-```
-docker build --build-arg WASM_BRANCH=master -t tinysearch/cli .
-```
-
 By default, the most recent stable Alpine Rust image is used. To get nightly, run
-```
+
+```sh
 docker build --build-arg RUST_IMAGE=rustlang/rust:nightly-alpine -t tinysearch/cli:nightly .
 ```
 
 ## Users
 
+The following websites use tinysearch:
+
 * [Matthias Endler's personal blog](https://endler.dev/2019/tinysearch/)
 * [OutOfCheeseError](https://out-of-cheese-error.netlify.app/)
-* Are you using tinysearch, too? Add your site here!
+
+Are you using tinysearch, too? Add your site here!
 
 ## Maintainers
 
