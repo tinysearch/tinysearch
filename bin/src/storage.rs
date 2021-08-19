@@ -7,7 +7,7 @@ use strip_markdown::strip_markdown;
 use tinysearch_shared::{Filters, PostId, Storage};
 use xorf::HashProxy;
 
-pub fn gen(posts: Posts) -> Result<(), Error> {
+pub fn write(posts: Posts) -> Result<(), Error> {
     let filters = build(posts)?;
     trace!("Storage::from");
     let storage = Storage::from(filters);
