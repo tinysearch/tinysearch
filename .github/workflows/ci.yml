@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
   schedule:
     # Runs every Thursday at 20:23 GMT to avoid bit rot
     - cron: "20 23 * * 4"
