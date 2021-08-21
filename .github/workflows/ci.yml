@@ -126,7 +126,16 @@ jobs:
         with:
           command: publish
           args: --manifest-path shared/Cargo.toml
-          
+
+      # The crates.io API might be delayed by a few seconds.
+      # As a result, the newly published `shared` might not be
+      # published when the binary that depends on it wants to pull it.
+      # Wait a few seconds to avoid that race-condition.
+      - name: Wait for cargo publication
+        uses: juliangruber/sleep-action@v1
+        with:
+          time: 30s
+
       - name: Publish binary
         uses: actions-rs/cargo@v1
         env:
