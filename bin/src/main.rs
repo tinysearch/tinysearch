@@ -43,7 +43,9 @@ struct Opt {
 }
 
 fn unpack_engine(temp_dir: &Path) -> Result<(), Error> {
+    println!("Start unpack");
     for file in FILES.file_names() {
+        println!("{:?}", file);
         // This hack removes the "../" prefix that
         // gets introduced by including the crates
         // from the `bin` parent directory.
@@ -83,6 +85,8 @@ fn main() -> Result<(), Error> {
 
     let temp_dir = tempdir()?;
     println!("Unpacking tinysearch WASM engine into temporary directory");
+    println!("{:?}", temp_dir);
+    println!("{:?}", temp_dir.path());
     unpack_engine(temp_dir.path())?;
     debug!("Crate content extracted to {:?}/", &temp_dir);
 
