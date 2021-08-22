@@ -67,7 +67,7 @@ fn main() -> Result<(), Error> {
     let opt: Opt = argh::from_env();
 
     if opt.version {
-        println!("{}", env!("CARGO_PKG_VERSION"));
+        println!("tinysearch {}", env!("CARGO_PKG_VERSION"));
         std::process::exit(0);
     }
 
