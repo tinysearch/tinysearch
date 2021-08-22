@@ -1,7 +1,7 @@
 [package]
 name = "tinysearch"
 authors = ["Matthias Endler <matthias-endler@gmx.net>"]
-version = "0.6.0"
+version = "0.6.1"
 edition = "2018"
 description = "A tiny search engine for static websites"
 license = "Apache-2.0/MIT"
