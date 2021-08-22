@@ -6,7 +6,7 @@ tinysearch is a lightweight, fast, full-text search engine. It is designed for s
 
 tinysearch is written in Rust, and then compiled to WebAssembly to run in a browser.  
 It can be used together with static site generators such as [Jekyll](https://jekyllrb.com/),
-[Hugo](https://gohugo.io/), [zola](https://www.getzola.org/),
+[Hugo](https://gohugo.io/), [Zola](https://www.getzola.org/),
 [Cobalt](https://github.com/cobalt-org/cobalt.rs), or [Pelican](https://getpelican.com).
 
 ![Demo](tinysearch.gif)
