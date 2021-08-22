@@ -25,9 +25,13 @@ static DEMO_HTML: &str = include_str!("../assets/demo.html");
 #[derive(FromArgs)]
 /// A tiny, static search engine for static websites
 struct Opt {
+    /// show version and exit
+    #[argh(switch)]
+    version: bool,
+
     /// index JSON file to process
     #[argh(positional)]
-    index: PathBuf,
+    index: Option<PathBuf>,
 
     /// output path for WASM module (local directory by default)
     #[argh(option, short = 'p', long = "path")]
@@ -61,12 +65,19 @@ fn main() -> Result<(), Error> {
     FILES.set_passthrough(env::var_os("PASSTHROUGH").is_some());
 
     let opt: Opt = argh::from_env();
+
+    if opt.version {
+        println!("tinysearch {}", env!("CARGO_PKG_VERSION"));
+        std::process::exit(0);
+    }
+
     let out_path = opt
         .out_path
         .unwrap_or_else(|| PathBuf::from("."))
         .canonicalize()?;
 
-    let posts: Posts = index::read(fs::read_to_string(opt.index)?)?;
+    let index = opt.index.context("No index file specified")?;
+    let posts: Posts = index::read(fs::read_to_string(index)?)?;
     trace!("Generating storage from posts: {:#?}", posts);
     storage::write(posts)?;
 
