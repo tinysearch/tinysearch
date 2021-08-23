@@ -1,7 +1,7 @@
 [package]
 name = "tinysearch-engine"
 authors = ["Matthias Endler <matthias-endler@gmx.net>"]
-version = "0.6.1"
+version = "0.6.2"
 edition = "2018"
 description = "A tiny search engine for static websites"
 license = "Apache-2.0/MIT"
@@ -17,7 +17,7 @@ once_cell = "1.8.0"
 
 [dependencies.tinysearch-shared]
 path = "../shared"
-version = "0.6.1"
+version = "0.6.2"
 
 [dependencies.xorf]
 version = "0.7.2"
