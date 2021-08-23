@@ -43,7 +43,9 @@ struct Opt {
 }
 
 fn unpack_engine(temp_dir: &Path) -> Result<(), Error> {
+    println!("Start unpack");
     for file in FILES.file_names() {
+        println!("Copying {:?}", file);
         // This hack removes the "../" prefix that
         // gets introduced by including the crates
         // from the `bin` parent directory.
@@ -53,7 +55,6 @@ fn unpack_engine(temp_dir: &Path) -> Result<(), Error> {
             debug!("Creating parent dir {:?}", &parent);
             fs::create_dir_all(&parent)?;
         }
-        debug!("Extracting {:?}", &outpath);
         let content = FILES.get(file)?;
         let mut outfile = File::create(&outpath)?;
         outfile.write_all(&content)?;
@@ -82,7 +83,10 @@ fn main() -> Result<(), Error> {
     storage::write(posts)?;
 
     let temp_dir = tempdir()?;
-    println!("Unpacking tinysearch WASM engine into temporary directory");
+    println!(
+        "Unpacking tinysearch WASM engine into temporary directory {:?}",
+        temp_dir.path()
+    );
     unpack_engine(temp_dir.path())?;
     debug!("Crate content extracted to {:?}/", &temp_dir);
 
