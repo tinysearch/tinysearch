@@ -19,11 +19,11 @@ It can be seen as an alternative to [lunr.js](https://lunrjs.com/) and
 [elasticlunr](http://elasticlunr.com/), which are too heavy for smaller websites and
 load a lot of JavaScript.  
 
-Under the hood it uses a [Xor Filter](https://arxiv.org/abs/1912.08258) -- a
+Under the hood it uses a [Xor Filter](https://arxiv.org/abs/1912.08258) &mdash; a
 datastructure for fast approximation of set membership that is smaller than
 bloom and cuckoo filters.  Each blog post gets converted into a filter that will
 then be serialized to a binary blob using
-[bincode](https://github.com/bincode-org/bincode).  Please not that the
+[bincode](https://github.com/bincode-org/bincode).  Please note that the
 underlying technologies are subject to change.
 
 ## Is it tiny?
@@ -33,14 +33,14 @@ That is smaller than the demo image above; so yes.
 
 ## Limitations
 
-- Only searches for entire words. As a consequence there are no search
+- Only finds entire words. As a consequence there are no search
   suggestions (yet).  This is a necessary tradeoff for reducing memory usage. A
   trie datastructure was about 10x bigger than the xor filters.  New research on
   compact datastructures for prefix searches might lift this limitation in the
   future.
 - Since we bundle all search indices for all articles into one static binary, we
-  recommend to only use it for small- to medium-size websites. Expect around 4 kB
-  uncompressed per article (~2 kb compressed).
+  recommend to only use it for small- to medium-size websites. Expect around 2 kB
+  uncompressed per article (~1 kb compressed).
 
 ## Installation
 
@@ -78,8 +78,8 @@ cargo install tinysearch
 
 ## Usage
 
-As an input, we require a JSON index file, which contains the content to index.
-Here is an [example file](fixtures/index.json).
+A JSON file, which contains the content to index, is required as an input.
+Please take a look at the [example file](fixtures/index.json).
 
 Once you created the index, you can run
 
@@ -91,7 +91,7 @@ tinysearch fixtures/index.json
 ℹ️ The `body` field in the JSON document is optional and can be skipped to just index post titles.
 
 This will create a WASM module and the JavaScript glue code to integrate it into
-your homepage. You can open the `demo.html` from any webserver to see the
+your website. You can open the `demo.html` from any webserver to see the
 result.
 
 For example, Python has a built-in webserver that can be used for a quick test:
@@ -100,11 +100,11 @@ For example, Python has a built-in webserver that can be used for a quick test:
 python3 -m http.server 
 ```
 
-then browse to http://0.0.0.0:8000/demo.html to see the result.
+then browse to http://0.0.0.0:8000/demo.html to run the demo.
 
 ## Advanced Usage
 
-For advanced usage options, try
+For advanced usage options, run
 
 ```
 tinysearch --help
@@ -114,18 +114,9 @@ Please check what's required to [host WebAssembly in production](https://rustwas
 
 ## Docker
 
-If you don't have a full Rust setup, you can also use our nightly-built Docker images.
+If you don't have a full Rust setup available, you can also use our nightly-built Docker images.
 
-### Advanced Build Args
-
- - `WASM_REPO`: Overwrite the wasm-pack repository
- - `WASM_BRANCH`: Overwrite the repository branch to use
- - `TINY_REPO`: Overwrite repository of tinysearch
- - `TINY_BRANCH`: Overwrite tinysearch branch
-
-#### Demo
-
-Here is to quickly try tinysearch with Docker:
+Here is how to quickly try tinysearch with Docker:
 
 ```sh
 # Download a sample blog index from endler.dev
@@ -140,11 +131,19 @@ By default, the most recent stable Alpine Rust image is used. To get nightly, ru
 docker build --build-arg RUST_IMAGE=rustlang/rust:nightly-alpine -t tinysearch/cli:nightly .
 ```
 
+### Advanced Docker Build Args
+
+ - `WASM_REPO`: Overwrite the wasm-pack repository
+ - `WASM_BRANCH`: Overwrite the repository branch to use
+ - `TINY_REPO`: Overwrite repository of tinysearch
+ - `TINY_BRANCH`: Overwrite tinysearch branch
+
+
 ## Users
 
 The following websites use tinysearch:
 
-* [Matthias Endler's personal blog](https://endler.dev/2019/tinysearch/)
+* [Matthias Endler's blog](https://endler.dev/2019/tinysearch/)
 * [OutOfCheeseError](https://out-of-cheese-error.netlify.app/)
 
 Are you using tinysearch, too? Add your site here!
