@@ -11,6 +11,11 @@ It can be used together with static site generators such as [Jekyll](https://jek
 
 ![Demo](tinysearch.gif)
 
+## Is it tiny?
+
+The test index file of my blog with around 40 posts creates a WASM payload of 99kB (49kB gzipped, 40kB brotli).  
+That is smaller than the demo image above; so yes.
+
 ## How it works
 
 tinysearch is a Rust/WASM port of the Python code from the article ["Writing a full-text
@@ -25,11 +30,6 @@ bloom and cuckoo filters.  Each blog post gets converted into a filter that will
 then be serialized to a binary blob using
 [bincode](https://github.com/bincode-org/bincode).  Please note that the
 underlying technologies are subject to change.
-
-## Is it tiny?
-
-The test index file of my blog with around 40 posts creates a WASM payload of 99kB (49kB gzipped, 40kB brotli).  
-That is smaller than the demo image above; so yes.
 
 ## Limitations
 
