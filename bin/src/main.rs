@@ -4,7 +4,7 @@ extern crate log;
 mod index;
 mod storage;
 
-use anyhow::{Context, Error, Result};
+use anyhow::{bail, Context, Error, Result};
 use argh::FromArgs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -43,7 +43,7 @@ struct Opt {
 }
 
 fn unpack_engine(temp_dir: &Path) -> Result<(), Error> {
-    println!("Start unpack");
+    println!("Starting unpack");
     for file in FILES.file_names() {
         println!("Copying {:?}", file);
         // This hack removes the "../" prefix that
@@ -90,8 +90,19 @@ fn main() -> Result<(), Error> {
     unpack_engine(temp_dir.path())?;
     debug!("Crate content extracted to {:?}/", &temp_dir);
 
+    let engine_dir = temp_dir.path().join("engine");
+    if !engine_dir.exists() {
+        for path in fs::read_dir(out_path)? {
+            println!("Name: {}", path.unwrap().path().display())
+        }
+        bail!(
+            "Engine directory could not be created at {}",
+            engine_dir.display()
+        );
+    }
+
     println!("Copying index into crate");
-    fs::copy("storage", temp_dir.path().join("engine/storage"))?;
+    fs::rename("storage", engine_dir.join("storage"))?;
 
     println!("Compiling WASM module using wasm-pack");
     wasm_pack(&temp_dir.path().join("engine"), &out_path)?;
