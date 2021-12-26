@@ -1,26 +1,31 @@
 [package]
 name = "tinysearch"
 authors = ["Matthias Endler <matthias-endler@gmx.net>"]
-version = "0.6.2"
-edition = "2018"
+version = "0.6.4"
+edition = "2021"
 description = "A tiny search engine for static websites"
 license = "Apache-2.0/MIT"
 documentation = "https://github.com/mre/tinysearch/blob/master/README.md"
 homepage = "https://github.com/mre/tinysearch"
 
 [dependencies]
-argh = "0.1.5"
-tinysearch-shared = { path = "../shared", version = "0.6.2" }
-log = "0.4.14"
-serde_json = "1.0.66"
-anyhow = "1.0.43"
-tempfile = "3.2.0"
-serde = { version = "1.0.127", features = ["derive"] }
-serde_derive = "1.0.127"
-phf = "0.8.0"
-includedir = "0.6.0"
-strip_markdown = "0.2.0"
-xorf = "0.7.2"
+tinysearch-shared = { path = "../shared", version = "0.6.4" }
 
-[build-dependencies]
-includedir_codegen = "0.6.0"
+argh = "0.1.7"
+log = "0.4.14"
+serde_json = "1.0.73"
+anyhow = "1.0.52"
+tempfile = "3.2.0"
+serde = { version = "1.0.132", features = ["derive"] }
+serde_derive = "1.0.132"
+strip_markdown = "0.2.0"
+xorf = "0.8.0"
+phf = "0.10.1"
+
+[dependencies.includedir]
+git = "https://github.com/mre/includedir"
+branch = "update-deps"
+
+[build-dependencies.includedir_codegen]
+git = "https://github.com/mre/includedir"
+branch = "update-deps"
