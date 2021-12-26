@@ -461,7 +461,7 @@ dependencies = [
 
 [[package]]
 name = "tinysearch"
-version = "0.6.2"
+version = "0.6.3"
 dependencies = [
  "anyhow",
  "argh",
@@ -480,7 +480,7 @@ dependencies = [
 
 [[package]]
 name = "tinysearch-shared"
-version = "0.6.2"
+version = "0.6.3"
 dependencies = [
  "bincode",
  "serde",
