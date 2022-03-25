@@ -92,6 +92,9 @@ fn main() -> Result<(), Error> {
 
     let engine_dir = temp_dir.path().join("engine");
     if !engine_dir.exists() {
+      fs::create_dir_all(&engine_dir)?;
+    }
+    if !engine_dir.exists() {
         for path in fs::read_dir(out_path)? {
             println!("Name: {}", path.unwrap().path().display())
         }
@@ -102,7 +105,7 @@ fn main() -> Result<(), Error> {
     }
 
     println!("Copying index into crate");
-    fs::rename("storage", engine_dir.join("storage"))?;
+    fs::copy("storage", engine_dir.join("storage"))?;
 
     println!("Compiling WASM module using wasm-pack");
     wasm_pack(&temp_dir.path().join("engine"), &out_path)?;
