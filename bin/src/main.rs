@@ -74,7 +74,10 @@ fn main() -> Result<(), Error> {
 
     let out_path = opt
         .out_path
-        .unwrap_or_else(|| PathBuf::from("."))
+        .unwrap_or_else(|| {
+            fs::create_dir_all("./wasm_output").unwrap();
+            PathBuf::from("./wasm_output")
+        })
         .canonicalize()?;
 
     let index = opt.index.context("No index file specified")?;
@@ -92,7 +95,7 @@ fn main() -> Result<(), Error> {
 
     let engine_dir = temp_dir.path().join("engine");
     if !engine_dir.exists() {
-      fs::create_dir_all(&engine_dir)?;
+        fs::create_dir_all(&engine_dir)?;
     }
     if !engine_dir.exists() {
         for path in fs::read_dir(out_path)? {
