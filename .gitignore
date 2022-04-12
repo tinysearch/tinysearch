@@ -7,5 +7,6 @@ tinysearch_engine_bg.d.ts
 tinysearch_engine_bg.wasm.d.ts
 package.json
 pkg/
+wasm_output/
 demo.html
 .vscode
