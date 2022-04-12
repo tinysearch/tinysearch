@@ -22,6 +22,11 @@ include!(concat!(env!("OUT_DIR"), "/engine.rs"));
 // Include a bare-bones HTML page that demonstrates how tinysearch is used
 static DEMO_HTML: &str = include_str!("../assets/demo.html");
 
+fn default_output_dir() -> PathBuf {
+    fs::create_dir_all("./wasm_output").unwrap();
+    PathBuf::from("./wasm_output")
+}
+
 #[derive(FromArgs)]
 /// A tiny, static search engine for static websites
 struct Opt {
@@ -33,9 +38,9 @@ struct Opt {
     #[argh(positional)]
     index: Option<PathBuf>,
 
-    /// output path for WASM module (local directory by default)
-    #[argh(option, short = 'p', long = "path")]
-    out_path: Option<PathBuf>,
+    /// output path for WASM module ("wasm_output" directory by default)
+    #[argh(option, short = 'p', long = "path", default = "default_output_dir()")]
+    out_path: PathBuf,
 
     /// optimize the output using binaryen
     #[argh(switch, short = 'o', long = "optimize")]
@@ -72,10 +77,7 @@ fn main() -> Result<(), Error> {
         std::process::exit(0);
     }
 
-    let out_path = opt
-        .out_path
-        .unwrap_or_else(|| PathBuf::from("."))
-        .canonicalize()?;
+    let out_path = opt.out_path.canonicalize()?;
 
     let index = opt.index.context("No index file specified")?;
     let posts: Posts = index::read(fs::read_to_string(index)?)?;
@@ -92,7 +94,7 @@ fn main() -> Result<(), Error> {
 
     let engine_dir = temp_dir.path().join("engine");
     if !engine_dir.exists() {
-      fs::create_dir_all(&engine_dir)?;
+        fs::create_dir_all(&engine_dir)?;
     }
     if !engine_dir.exists() {
         for path in fs::read_dir(out_path)? {
