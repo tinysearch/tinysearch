@@ -39,7 +39,7 @@
 
 ```
 +++
-path = "json"
+path = "data_tinysearch"
 template = "tinysearch_json.html"
 +++
 ```
@@ -48,5 +48,5 @@ After running `zola build`, the output JSON file should be in `public/json/index
 You can then call tinysearch on the index to create your WASM:
 
 ```
-tinysearch --optimize --path static public/json/index.html
+tinysearch --optimize --path static public/data_tinysearch/index.html
 ```
