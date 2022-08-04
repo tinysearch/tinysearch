@@ -2,7 +2,7 @@
 
 1. Create a template, which iterates over all pages and creates our JSON structure.
 
-`macros/create_data.html`:
+`macros/create_tinysearch_json.html`:
 
 ```liquid
 {%- macro from_section(section) -%}
@@ -26,21 +26,21 @@
 {%- endmacro from_section -%}
 ```
 
-`templates/json.html`:
+`templates/tinysearch_json.html`:
 
 ```liquid
-{%- import "macros/create_data.html" as create_data -%}
-[{{ create_data::from_section(section="_index.md") }}]
+{%- import "macros/create_tinysearch_json.html" as create_tinysearch_json -%}
+[{{ create_tinysearch_json::from_section(section="_index.md") }}]
 ```
 
 2. Create a static page using the template.
 
-`content/static/json.md`:
+`content/static/tinysearch_json.md`:
 
 ```
 +++
 path = "json"
-template = "json.html"
+template = "tinysearch_json.html"
 +++
 ```
 
