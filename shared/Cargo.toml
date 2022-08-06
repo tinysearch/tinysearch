@@ -1,6 +1,6 @@
 [package]
 name = "tinysearch-shared"
-version = "0.6.3"
+version = "0.6.4"
 authors = ["Matthias Endler <matthias-endler@gmx.net>"]
 edition = "2021"
 description = "Shared libraries for tinysearch - a tiny search engine for static websites"
