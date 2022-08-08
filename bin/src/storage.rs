@@ -81,7 +81,7 @@ pub fn prepare_posts(posts: Posts) -> HashMap<PostId, Option<String>> {
     let mut prepared: HashMap<PostId, Option<String>> = HashMap::new();
     for post in posts {
         debug!("Analyzing {}", post.url);
-        prepared.insert((post.title, post.url), post.body);
+        prepared.insert((post.title, post.url, post.meta), post.body);
     }
     prepared
 }
