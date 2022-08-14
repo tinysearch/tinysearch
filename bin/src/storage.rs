@@ -97,10 +97,11 @@ mod tests {
         let mut posts = HashMap::new();
         posts.insert(
             (
-                "Maybe You Don't Need Kubernetes, Or Excel - You Know".to_string(),
-                "".to_string(),
+                "Maybe You Don't Need Kubernetes, Or Excel - You Know".to_string(),//title
+                "".to_string(),//url
+                None,//meta
             ),
-            None,
+            None,//body
         );
         let filters = generate_filters(posts).unwrap();
         assert_eq!(filters.len(), 1);
