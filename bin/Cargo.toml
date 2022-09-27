@@ -1,15 +1,16 @@
 [package]
 name = "tinysearch"
 authors = ["Matthias Endler <matthias-endler@gmx.net>"]
-version = "0.6.4"
+version = "0.7.0"
 edition = "2021"
 description = "A tiny search engine for static websites"
 license = "Apache-2.0/MIT"
 documentation = "https://github.com/mre/tinysearch/blob/master/README.md"
 homepage = "https://github.com/mre/tinysearch"
+repository = "https://github.com/mre/tinysearch"
 
 [dependencies]
-tinysearch-shared = { path = "../shared", version = "0.6.3" }
+tinysearch-shared = { path = "../shared", version = "0.7.0" }
 
 argh = "0.1.5"
 log = "0.4.14"
