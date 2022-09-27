@@ -7,7 +7,8 @@ use std::collections::hash_map::DefaultHasher;
 
 type Title = String;
 type Url = String;
-pub type PostId = (Title, Url);
+type Meta = Option<String>;
+pub type PostId = (Title, Url, Meta);
 pub type PostFilter = (PostId, HashProxy<String, DefaultHasher, Xor8>);
 pub type Filters = Vec<PostFilter>;
 

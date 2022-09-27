@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct Post {
     pub title: String,
     pub url: String,
+    pub meta: Option<String>,
     pub body: Option<String>,
 }
 
