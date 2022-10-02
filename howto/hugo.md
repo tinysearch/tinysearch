@@ -25,6 +25,20 @@ The output file will be in `public/index.json`
 
 See https://forestry.io/blog/build-a-json-api-with-hugo/ for more info.
 
-# Credits
+## Github action
 
-Tutorial created by [@Lusitaniae](https://github.com/Lusitaniae); edited by [@lord-re](https://github.com/lord-re).
+If building and deploying your hugo website using Github actions, you can use [tinysearch-action](https://github.com/leonhfr/tinysearch-action#deploy-a-hugo-website-to-github-pages).
+
+```yaml
+- name: Build tinysearch
+  uses: leonhfr/tinysearch-action@v1
+  with:
+    index: public/index.json
+    output_dir: public/wasm
+    output_types: |
+      wasm
+```
+
+## Credits
+
+Tutorial created by [@Lusitaniae](https://github.com/Lusitaniae); edited by [@lord-re](https://github.com/lord-re) and [@leonhfr](https://github.com/leonhfr).

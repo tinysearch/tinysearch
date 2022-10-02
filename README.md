@@ -138,6 +138,20 @@ docker build --build-arg RUST_IMAGE=rustlang/rust:nightly-alpine -t tinysearch/c
  - `TINY_REPO`: Overwrite repository of tinysearch
  - `TINY_BRANCH`: Overwrite tinysearch branch
 
+## Github action
+
+To integrate tinysearch in continuous deployment pipelines, a [github action](https://github.com/marketplace/actions/tinysearch-action) is available.
+
+```yaml
+- name: Build tinysearch
+  uses: leonhfr/tinysearch-action@v1
+  with:
+    index: public/index.json
+    output_dir: public/wasm
+    output_types: |
+      wasm
+```
+
 
 ## Users
 
