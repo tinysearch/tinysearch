@@ -4,8 +4,8 @@ use includedir_codegen::Compression;
 
 fn main() {
     includedir_codegen::start("FILES")
-        .dir(concat!(env!("OUT_DIR"),"/engine"), Compression::Gzip)
-        .dir(concat!(env!("OUT_DIR"),"/shared"), Compression::Gzip)
+        .dir(format!("{}{}",std::env::var("OUT_DIR").unwrap(),"/engine"), Compression::Gzip)
+        .dir(format!("{}{}",std::env::var("OUT_DIR").unwrap(),"/shared"), Compression::Gzip)
         .build("engine.rs")
         .unwrap();
 }
