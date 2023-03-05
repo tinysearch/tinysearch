@@ -1,18 +1,19 @@
 use anyhow::Error;
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::path;
 
 use crate::index::Posts;
 use strip_markdown::strip_markdown;
-use tinysearch_shared::{Filters, PostId, Storage};
+use tinysearch_engine::{Filters, PostId, Storage};
 use xorf::HashProxy;
 
-pub fn write(posts: Posts) -> Result<(), Error> {
+pub fn write(posts: Posts, path: &path::PathBuf) -> Result<(), Error> {
     let filters = build(posts)?;
     trace!("Storage::from");
     let storage = Storage::from(filters);
     trace!("Write");
-    fs::write("storage", storage.to_bytes()?)?;
+    fs::write(path, storage.to_bytes()?)?;
     trace!("ok");
     Ok(())
 }
@@ -97,11 +98,11 @@ mod tests {
         let mut posts = HashMap::new();
         posts.insert(
             (
-                "Maybe You Don't Need Kubernetes, Or Excel - You Know".to_string(),//title
-                "".to_string(),//url
-                None,//meta
+                "Maybe You Don't Need Kubernetes, Or Excel - You Know".to_string(), //title
+                "".to_string(),                                                     //url
+                None,                                                               //meta
             ),
-            None,//body
+            None, //body
         );
         let filters = generate_filters(posts).unwrap();
         assert_eq!(filters.len(), 1);

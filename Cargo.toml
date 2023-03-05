@@ -1,5 +1,5 @@
 [workspace]
 members = [
-	"bin",
-	"shared",
+	"tinysearch",
+	"tinysearch-engine",
 ]
