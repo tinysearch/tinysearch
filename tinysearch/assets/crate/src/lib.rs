@@ -5,7 +5,7 @@ use serde_wasm_bindgen;
 #[cfg(feature = "bind")]
 use wasm_bindgen::prelude::*;
 
-use tinysearch_engine::{search as base_search, Filters, PostId, Storage};
+use tinysearch::{search as base_search, Filters, PostId, Storage};
 
 #[cfg(feature = "bind")]
 #[global_allocator]

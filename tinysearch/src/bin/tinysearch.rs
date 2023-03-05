@@ -1,11 +1,14 @@
+#[cfg(feature = "bin")]
 #[macro_use]
 extern crate log;
 
-mod index;
-mod storage;
-mod templates;
+mod utils;
+use utils::assets;
+use utils::index;
+use utils::storage;
 
-use anyhow::{bail, Context, Error, Result};
+pub use anyhow::{Error, Result};
+use anyhow::{bail, Context};
 use argh::FromArgs;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -16,9 +19,6 @@ use toml_edit::{value, Document};
 
 use index::Posts;
 use strum::{EnumString, IntoStaticStr};
-
-// The search engine code gets statically included into the binary.
-// During indexation (when running tinysearch), this will be compiled to WASM.
 
 fn ensure_exists(path: PathBuf) -> Result<PathBuf, Error> {
     if !path.exists() {
@@ -41,7 +41,7 @@ enum DirOrTemp {
 }
 
 impl DirOrTemp {
-    pub fn path(self: &Self) -> PathBuf {
+    pub fn path(&self) -> PathBuf {
         match self {
             DirOrTemp::Path(p) => p.clone(),
             DirOrTemp::Temp(p) => p.path().to_path_buf(),
@@ -134,7 +134,7 @@ struct Opt {
     /// this version will be used in Cargo.toml for the generated crate
     /// (only used in wasm, crate modes). This should be a valid TOML table definition.
     /// Default is 'version="env!("CARGO_PKG_VERSION")"'. If you have a local version of
-    /// tinysearch, you can specify 'path="/path/to/tinysearch-engine"'
+    /// tinysearch, you can specify 'path="/path/to/tinysearch"'
     #[argh(
         option,
         short = 'e',
@@ -148,15 +148,14 @@ struct Opt {
     #[argh(
         option,
         long = "crate-name",
-        default = "\"tinysearch-implementation\".into()"
+        default = "\"tinysearch-engine\".into()"
     )]
     crate_name: String,
 
     /// removes all top-level configs from Cargo.toml of generated crate and makes it locally importable (only makes sense in crate mode)
     #[argh(
-        option,
-        long = "non-top-level-crate",
-        default = "false"
+        switch,
+        long = "non-top-level-crate"
     )]
     non_top_level_crate: bool,
 
@@ -168,7 +167,7 @@ struct Opt {
 trait Stage: Sized {
     fn from_opt(opt: &Opt) -> Result<Self, Error>;
 
-    fn build(self: &Self) -> Result<(), Error>;
+    fn build(&self) -> Result<(), Error>;
 }
 
 #[derive(Default)]
@@ -186,13 +185,13 @@ impl Stage for Search {
             storage_file: input
                 .canonicalize()
                 .with_context(|| format!("Failed to find file: {}", input.display()))?,
-            term: term,
+            term,
             num_searches: opt.num_searches,
         })
     }
 
-    fn build(self: &Self) -> Result<(), Error> {
-        use tinysearch_engine::{search as base_search, Storage};
+    fn build(&self) -> Result<(), Error> {
+        use tinysearch::{search as base_search, Storage};
         let bytes = fs::read(&self.storage_file).with_context(|| {
             format!("Failed to read input file: {}", self.storage_file.display())
         })?;
@@ -222,7 +221,7 @@ impl Stage for Storage {
         })
     }
 
-    fn build(self: &Self) -> Result<(), Error> {
+    fn build(&self) -> Result<(), Error> {
         let storage_file = self.out_path.join("storage");
         println!(
             "Creating storage file for posts {} in file {}",
@@ -248,6 +247,9 @@ struct Crate {
 
 impl Stage for Crate {
     fn from_opt(opt: &Opt) -> Result<Self, Error> {
+        if opt.crate_path.is_some(){
+            bail!("Don't use --crate-path to specify crate output dir!");
+        }
         let out_path = ensure_exists(opt.out_path.clone())?;
         let storage_opt = {
             let mut ret: Opt = opt.clone();
@@ -257,23 +259,23 @@ impl Stage for Crate {
 
         Ok(Self {
             s: Storage::from_opt(&storage_opt)?,
-            out_path: out_path,
+            out_path,
             crate_name: opt.crate_name.clone(),
             engine_version: opt.engine_version.clone(),
             non_top_level: opt.non_top_level_crate
         })
     }
 
-    fn build(self: &Self) -> Result<(), Error> {
+    fn build(&self) -> Result<(), Error> {
         println!(
             "Creating tinysearch implementation crate {} in directory {}",
             self.crate_name,
             self.out_path.display()
         );
         let cargo_toml = self.out_path.join("Cargo.toml");
-        let mut cargo_toml_contents = templates::CRATE_CARGO_TOML.parse::<Document>()?;
+        let mut cargo_toml_contents = assets::CRATE_CARGO_TOML.parse::<Document>()?;
         cargo_toml_contents["package"]["name"] = value(self.crate_name.clone());
-        cargo_toml_contents["dependencies"]["tinysearch-engine"] =
+        cargo_toml_contents["dependencies"]["tinysearch"] =
             toml_edit::Item::Table(self.engine_version.clone());
         if self.non_top_level{
             cargo_toml_contents.as_table_mut().remove("workspace");
@@ -289,7 +291,7 @@ impl Stage for Crate {
         self.s.build().context("Failed building storage")?;
         fs::write(
             &self.out_path.join("src").join("lib.rs"),
-            templates::CRATE_LIB_RS,
+            assets::CRATE_LIB_RS,
         )?;
         println!("Crate content generated in {}/", &self.out_path.display());
         Ok(())
@@ -319,17 +321,18 @@ impl Stage for Wasm {
         let crate_opt = {
             let mut ret: Opt = opt.clone();
             ret.out_path = crate_path.path();
+            ret.crate_path = None;
             ret
         };
         Ok(Self {
             c: Crate::from_opt(&crate_opt)?,
             out_path: ensure_exists(opt.out_path.clone())?,
-            crate_path: crate_path,
+            crate_path,
             optimize: opt.optimize,
         })
     }
 
-    fn build(self: &Self) -> Result<(), Error> {
+    fn build(self: &Wasm) -> Result<(), Error> {
         self.c.build().context("Failed generating crate")?;
         println!("Compiling WASM module using wasm-pack");
         let crate_path = self.crate_path.path();
@@ -343,7 +346,7 @@ impl Stage for Wasm {
                 .arg("--out-dir")
                 .arg(&self.out_path),
         )?;
-        let wasm_name = self.c.crate_name.replace("-", "_");
+        let wasm_name = self.c.crate_name.replace('-', "_");
 
         if self.optimize {
             let wasm_file = format!("{}_bg.wasm", &wasm_name);
@@ -359,7 +362,7 @@ impl Stage for Wasm {
         let html_path = self.out_path.join("demo.html");
         fs::write(
             &html_path,
-            templates::DEMO_HTML.replace("{WASM_NAME}", &wasm_name),
+            assets::DEMO_HTML.replace("{WASM_NAME}", &wasm_name),
         )
         .with_context(|| format!("Failed writing demo.html to {}", &html_path.display()))?;
         println!("All done! Open the output folder with a web server to try the demo.");
@@ -367,7 +370,7 @@ impl Stage for Wasm {
     }
 }
 
-fn main() -> Result<(), Error> {
+pub fn main() -> Result<(), Error> {
     let opt: Opt = argh::from_env();
 
     if opt.version {
@@ -408,3 +411,18 @@ pub fn run_output(cmd: &mut Command) -> Result<String, Error> {
     }
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
+
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+
+//     #[test]
+//     fn test_compile_example(){
+//         run_output(
+//             Command::new("/home/delphi/.cargo/bin/trunk")
+//             .current_dir("../examples/yew-example-storage")
+//             .arg("build")
+//             .arg("--release")
+//         ).unwrap();
+//     }
+// }

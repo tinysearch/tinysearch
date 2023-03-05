@@ -3,9 +3,10 @@ use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path;
 
-use crate::index::Posts;
+use super::assets::STOP_WORDS;
+use super::index::Posts;
 use strip_markdown::strip_markdown;
-use tinysearch_engine::{Filters, PostId, Storage};
+use tinysearch::{Filters, PostId, Storage};
 use xorf::HashProxy;
 
 pub fn write(posts: Posts, path: &path::PathBuf) -> Result<(), Error> {
@@ -46,8 +47,7 @@ pub fn generate_filters(posts: HashMap<PostId, Option<String>>) -> Result<Filter
     // posts.items()}
     debug!("Generate filters");
 
-    let stopwords: &str = include_str!("../assets/stopwords");
-    let stopwords: HashSet<String> = stopwords.split_whitespace().map(String::from).collect();
+    let stopwords: HashSet<String> = STOP_WORDS.split_whitespace().map(String::from).collect();
 
     let split_posts: HashMap<PostId, Option<HashSet<String>>> = posts
         .into_iter()

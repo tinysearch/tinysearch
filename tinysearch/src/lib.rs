@@ -53,11 +53,11 @@ const TITLE_WEIGHT: usize = 3;
 
 // Wrapper around filter score, that also scores the post title
 // Post title score has a higher weight than post body
-fn score(title: &String, search_terms: &Vec<String>, filter: &Filter) -> usize {
-    let title_terms: Vec<String> = tokenize(&title);
+fn score(title: &str, search_terms: &[String], filter: &Filter) -> usize {
+    let title_terms: Vec<String> = tokenize(title);
     let title_score: usize = search_terms
         .iter()
-        .filter(|term| title_terms.contains(&term))
+        .filter(|term| title_terms.contains(term))
         .count();
     TITLE_WEIGHT * title_score + filter.score(search_terms)
 }
@@ -69,11 +69,11 @@ fn tokenize(s: &str) -> Vec<String> {
         .map(String::from)
         .collect()
 }
-pub fn search<'a>(filters: &'a Filters, query: String, num_results: usize) -> Vec<&'a PostId> {
+pub fn search(filters: &'_ Filters, query: String, num_results: usize) -> Vec<&'_ PostId> {
     let search_terms: Vec<String> = tokenize(&query);
     let mut matches: Vec<(&PostId, usize)> = filters
         .iter()
-        .map(|(post_id, filter)| (post_id, score(&post_id.0, &search_terms, &filter)))
+        .map(|(post_id, filter)| (post_id, score(&post_id.0, &search_terms, filter)))
         .filter(|(_post_id, score)| *score > 0)
         .collect();
 

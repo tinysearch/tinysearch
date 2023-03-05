@@ -1,5 +1,5 @@
 [package]
-name = "yew-example"
+name = "yew-example-crate"
 version = "0.1.0"
 edition = "2021"
 
@@ -11,8 +11,6 @@ ybc = "0.2"
 yew = "0.18"
 example_search = {path = "./example-search", features=[]}
 
-[build-dependencies]
-anyhow = "1.0.43"
 
 [workspace]
 members = []

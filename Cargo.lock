@@ -575,6 +575,7 @@ version = "0.7.0"
 dependencies = [
  "anyhow",
  "argh",
+ "bincode",
  "log",
  "phf",
  "serde",
@@ -583,17 +584,7 @@ dependencies = [
  "strip_markdown",
  "strum",
  "tempfile",
- "tinysearch-engine",
  "toml_edit",
- "xorf",
-]
-
-[[package]]
-name = "tinysearch-engine"
-version = "0.7.0"
-dependencies = [
- "bincode",
- "serde",
  "xorf",
 ]
 
@@ -753,6 +744,5 @@ version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0b223640dfbc22009679ce79f6777ae1db79add62a07345605777f69274a052"
 dependencies = [
- "rand",
  "serde",
 ]

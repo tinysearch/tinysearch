@@ -23,7 +23,7 @@ install: ## Install tinysearch
 
 .PHONY: test
 test: ## Run unit tests
-	cargo test
+	cargo test --features=bin
 
 .PHONY: run
 run: ## Run tinysearch with sample input

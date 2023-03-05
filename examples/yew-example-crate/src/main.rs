@@ -1,11 +1,9 @@
 #![recursion_limit = "1024"]
 
 use console_error_panic_hook::set_once as set_panic_hook;
-use wasm_bindgen::prelude::*;
-use ybc::TileCtx::{Ancestor, Child, Parent};
+use ybc::TileCtx::{Child, Parent};
 use ybc::InputType::Text;
 use yew::prelude::*;
-use yew::services::ConsoleService;
 
 use example_search::search_local;
 
@@ -70,7 +68,7 @@ impl Component for App {
                 padded=true
                 navbrand=html!{
                     <ybc::NavbarItem>
-                        <ybc::Title classes=classes!("has-text-white") size=ybc::HeaderSize::Is4>{"Trunk | Yew | YBC"}</ybc::Title>
+                        <ybc::Title classes=classes!("has-text-white") size=ybc::HeaderSize::Is4>{"Tinysearch | Trunk | Yew | YBC | demo"}</ybc::Title>
                     </ybc::NavbarItem>
                 }
                 navstart=html!{}
@@ -81,7 +79,6 @@ impl Component for App {
                             name="as" value={self.value.clone()}
                             update=self.link.callback(|s:String| Msg::SearchChanged(s))
                             r#type=Text ></ybc::Input>
-                        <ybc::Button loading=true ></ybc::Button>
                     </ybc::NavbarItem>
                     </>
                 }
