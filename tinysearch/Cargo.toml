@@ -8,7 +8,7 @@ license = "Apache-2.0/MIT"
 documentation = "https://github.com/mre/tinysearch/blob/master/README.md"
 homepage = "https://github.com/mre/tinysearch"
 repository = "https://github.com/mre/tinysearch"
-
+include = ["/src/assets"]
 [lib]
 
 [[bin]]

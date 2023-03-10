@@ -1,0 +1,49 @@
+name: cached-toolchain
+description: Install and cache toolchain
+
+inputs:
+  toolchain:
+    description: Rust toolchain specification -- see https://rust-lang.github.io/rustup/concepts/toolchains.html#toolchain-specification
+    required: true
+  targets:
+    description: Comma-separated list of target triples to install for this toolchain
+    required: false
+
+outputs:
+  cachekey:
+    description: A short hash of the rustc version, appropriate for use as a cache key. "20220627a831"
+    value: ${{steps.toolchain.outputs.cachekey}}
+
+runs:
+  using: composite
+  steps:
+  - uses: actions/cache/restore@v3
+    with:
+      path: |
+        ~/.cargo/bin/rustup
+        ~/.rustup
+      key: ${{ runner.os }}-toolchain-${{ inputs.toolchain }}-
+      restore-keys: |
+        ${{ runner.os }}-toolchain-${{ inputs.toolchain }}-
+
+  - shell: bash
+    run: 
+      mkdir -p "${CARGO_HOME:-$HOME/.cargo}/bin"
+      echo "${CARGO_HOME:-$HOME/.cargo}/bin" >> $GITHUB_PATH
+    if: runner.os != 'Windows'
+
+  - uses: dtolnay/rust-toolchain@e12eda571dc9a5ee5d58eecf4738ec291c66f295 # latest for 2023.03.10
+    id: toolchain
+    with:
+      toolchain: ${{ inputs.toolchain }}
+      # enable clippy only only on stable
+      components: ${{ inputs.toolchain == 'stable' && 'clippy' || '' }} 
+      # additional targets
+      targets: wasm32-unknown-unknown${{ inputs.targets && ',' || '' }}${{ inputs.targets && ',' || '' }}
+
+  - uses: actions/cache/save@v3
+    with:
+      path: |
+        ~/.cargo/bin/rustup
+        ~/.rustup
+      key: ${{ runner.os }}-toolchain-${{ inputs.toolchain }}-${{ steps.toolchain.outputs.cachekey }}
