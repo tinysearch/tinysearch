@@ -114,7 +114,7 @@ jobs:
       - name: Build examples
         run:
           for example in `ls -1 examples`; do
-            trunk build examples/$example/index.html || exit 1
+            trunk build examples/$example/index.html || exit 1;
           done
 
       - name: Audit for Security Vulnerabilities
