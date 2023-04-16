@@ -1,4 +1,4 @@
-#[cfg(feature = "bin")]
+#![cfg(feature = "bin")]
 #[macro_use]
 extern crate log;
 
@@ -228,7 +228,10 @@ impl Stage for Storage {
             self.posts_index.display(),
             storage_file.display()
         );
-        let posts: Posts = index::read(fs::read_to_string(&self.posts_index)?)?;
+        let posts: Posts = index::read(
+            fs::read_to_string(&self.posts_index)
+            .with_context(||format!("Failed to read file {}",  self.posts_index.display()))?
+        ).with_context(||format!("Failed to decode {}",  self.posts_index.display()))?;
         trace!("Generating storage from posts: {:#?}", posts);
         storage::write(posts, &storage_file)?;
         println!("Storage ready in file {}", storage_file.display());
