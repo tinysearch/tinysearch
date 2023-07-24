@@ -19,11 +19,11 @@ build: ### Compile project
 
 .PHONY: install
 install: ## Install tinysearch
-	cargo install --force --path bin 
+	cargo install --force --path tinysearch 
 
 .PHONY: test
 test: ## Run unit tests
-	cargo test
+	cargo test --features=bin
 
 .PHONY: run
 run: ## Run tinysearch with sample input
@@ -31,7 +31,7 @@ run: ## Run tinysearch with sample input
 
 .PHONY: pack
 pack: ## Pack tinysearch node module
-	wasm-pack build bin
+	wasm-pack build tinysearch
 	wasm-pack pack
 
 .PHONY: publish

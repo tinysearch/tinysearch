@@ -1,0 +1,13 @@
+[build]
+target = "index.html"
+dist = "dist"
+
+[[hooks]]
+# This hook example shows all the current available fields. It will execute the equivalent of
+# typing "echo Hello Trunk!" right at the start of the build process (even before the HTML file
+# is read). By default, the command is spawned directly and no shell is used.
+stage = "pre_build"
+command = "sh"
+command_arguments = [
+    "-c", 
+    "cd ../../ && cargo run --features=bin --release -- -m crate -p examples/yew-example-crate/example-search/ --crate-name example_search --engine-version 'path=\"../../../tinysearch\"' --non-top-level-crate fixtures/index.json"]
