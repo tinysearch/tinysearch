@@ -32,13 +32,4 @@ test: ## Run unit tests
 
 .PHONY: run
 run: ## Run tinysearch with sample input
-	cargo run -- fixtures/index.json
-
-.PHONY: pack
-pack: ## Pack tinysearch node module
-	wasm-pack build tinysearch
-	wasm-pack pack
-
-.PHONY: publish
-publish: pack ## Publish tinysearch to NPM
-	wasm-pack publish
+	cargo run --features="bin" -- fixtures/index.json
