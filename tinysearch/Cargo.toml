@@ -8,7 +8,9 @@ license = "Apache-2.0/MIT"
 documentation = "https://github.com/mre/tinysearch/blob/master/README.md"
 homepage = "https://github.com/mre/tinysearch"
 repository = "https://github.com/mre/tinysearch"
-include = ["/src/assets"]
+
+include = ["src/**/*"]
+
 [lib]
 
 [[bin]]
@@ -38,7 +40,7 @@ features = ["derive"]
 
 [dependencies.xorf]
 version = "0.8.1"
-default-features = false 
+default-features = false
 features = ["serde"]
 
 
