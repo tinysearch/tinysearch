@@ -23,5 +23,6 @@ pub fn search_local(query: String, num_results: usize) -> Vec<&'static PostId> {
 #[cfg(feature = "bind")]
 #[wasm_bindgen]
 pub fn search(query: String, num_results: usize) -> JsValue {
-    serde_wasm_bindgen::to_value(&search_local(query, num_results)).unwrap()
+    serde_wasm_bindgen::to_value(&search_local(query, num_results))
+        .expect("failed to serialize search result")
 }

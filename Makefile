@@ -24,7 +24,7 @@ build-docker: ### Build Docker image
 
 .PHONY: install
 install: ## Install tinysearch
-	cargo install --force --path tinysearch --features=bin
+	cargo install --force --path . --features=bin
 
 .PHONY: test
 test: ## Run unit tests

@@ -107,7 +107,7 @@ jobs:
           args: --all-features
 
       - name: Build and install tinysearch
-        run: cargo install --force --path tinysearch --features=bin
+        run: cargo install --force --path . --features=bin
         continue-on-error: ${{ matrix.rust == 'nightly' }}
 
       - name: Build WASM package from test index
