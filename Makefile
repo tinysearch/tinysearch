@@ -12,6 +12,7 @@ lint: ### Lint project using clippy
 .PHONY: clean
 clean: ### Clean up build artifacts
 	cargo clean
+	rm -rf wasm_output 
 
 .PHONY: build
 build: ### Compile project
