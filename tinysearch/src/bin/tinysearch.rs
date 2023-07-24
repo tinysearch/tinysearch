@@ -7,8 +7,8 @@ use utils::assets;
 use utils::index;
 use utils::storage;
 
-pub use anyhow::{Error, Result};
 use anyhow::{bail, Context};
+pub use anyhow::{Error, Result};
 use argh::FromArgs;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -145,18 +145,11 @@ struct Opt {
     engine_version: toml_edit::Table,
 
     /// this name will be used in Cargo.toml for the generated crate (only used in wasm and crate modes)
-    #[argh(
-        option,
-        long = "crate-name",
-        default = "\"tinysearch-engine\".into()"
-    )]
+    #[argh(option, long = "crate-name", default = "\"tinysearch-engine\".into()")]
     crate_name: String,
 
     /// removes all top-level configs from Cargo.toml of generated crate and makes it locally importable (only makes sense in crate mode)
-    #[argh(
-        switch,
-        long = "non-top-level-crate"
-    )]
+    #[argh(switch, long = "non-top-level-crate")]
     non_top_level_crate: bool,
 
     /// optimize the output using binaryen (only valid in wasm mode)
@@ -230,8 +223,9 @@ impl Stage for Storage {
         );
         let posts: Posts = index::read(
             fs::read_to_string(&self.posts_index)
-            .with_context(||format!("Failed to read file {}",  self.posts_index.display()))?
-        ).with_context(||format!("Failed to decode {}",  self.posts_index.display()))?;
+                .with_context(|| format!("Failed to read file {}", self.posts_index.display()))?,
+        )
+        .with_context(|| format!("Failed to decode {}", self.posts_index.display()))?;
         trace!("Generating storage from posts: {:#?}", posts);
         storage::write(posts, &storage_file)?;
         println!("Storage ready in file {}", storage_file.display());
@@ -245,12 +239,12 @@ struct Crate {
     out_path: PathBuf,
     crate_name: String,
     engine_version: toml_edit::Table,
-    non_top_level: bool
+    non_top_level: bool,
 }
 
 impl Stage for Crate {
     fn from_opt(opt: &Opt) -> Result<Self, Error> {
-        if opt.crate_path.is_some(){
+        if opt.crate_path.is_some() {
             bail!("Don't use --crate-path to specify crate output dir!");
         }
         let out_path = ensure_exists(opt.out_path.clone())?;
@@ -265,7 +259,7 @@ impl Stage for Crate {
             out_path,
             crate_name: opt.crate_name.clone(),
             engine_version: opt.engine_version.clone(),
-            non_top_level: opt.non_top_level_crate
+            non_top_level: opt.non_top_level_crate,
         })
     }
 
@@ -280,20 +274,20 @@ impl Stage for Crate {
         cargo_toml_contents["package"]["name"] = value(self.crate_name.clone());
         cargo_toml_contents["dependencies"]["tinysearch"] =
             toml_edit::Item::Table(self.engine_version.clone());
-        if self.non_top_level{
+        if self.non_top_level {
             cargo_toml_contents.as_table_mut().remove("workspace");
             cargo_toml_contents.as_table_mut().remove("profile");
             cargo_toml_contents.as_table_mut().remove("lib");
             cargo_toml_contents["lib"] = toml_edit::table();
         }
-        fs::write(&cargo_toml, cargo_toml_contents.to_string())?;
+        fs::write(cargo_toml, cargo_toml_contents.to_string())?;
 
         // let mut file = fs::OpenOptions::new().write(true).truncate(true).open(&cargo_toml)?;
         // file.write(new.as_bytes())?;
 
         self.s.build().context("Failed building storage")?;
         fs::write(
-            &self.out_path.join("src").join("lib.rs"),
+            self.out_path.join("src").join("lib.rs"),
             assets::CRATE_LIB_RS,
         )?;
         println!("Crate content generated in {}/", &self.out_path.display());
