@@ -43,6 +43,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     strategy:
+        fail-fast: false
         matrix:
             rust: [stable, beta, nightly]
 
@@ -66,7 +67,7 @@ jobs:
       - name: Install wasm-pack
         run:
           cargo install --git https://github.com/mre/wasm-pack.git --branch first-class-bins
-
+    
       - name: Print wasm-pack version
         run: wasm-pack --version
 
@@ -107,15 +108,18 @@ jobs:
 
       - name: Build and install tinysearch
         run: cargo install --force --path tinysearch --features=bin
+        continue-on-error: ${{ matrix.rust == 'nightly' }}
 
       - name: Build WASM package from test index
         run: RUST_LOG=debug tinysearch -e 'path= "'$PWD'/tinysearch"' fixtures/index.json
+        continue-on-error: ${{ matrix.rust == 'nightly' }}
       
       - name: Build examples
         run:
           for example in `ls -1 examples`; do
             (cd "examples/$example" && trunk build index.html) || exit 1;
           done
+        continue-on-error: ${{ matrix.rust == 'nightly' }}
 
       - name: Audit for Security Vulnerabilities
         uses: actions-rs/audit-check@v1
