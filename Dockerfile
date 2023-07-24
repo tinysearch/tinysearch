@@ -36,7 +36,7 @@ RUN terser --version
 RUN cd /tmp && git clone --branch "$TINY_BRANCH" "$TINY_REPO"
 RUN set -ex -o pipefail; \
     cd /tmp/tinysearch \
-    && cargo build --release \
+    && cargo build --release --features=bin \
     && cp target/release/tinysearch $CARGO_HOME/bin
 
 RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh

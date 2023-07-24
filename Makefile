@@ -18,6 +18,10 @@ clean: ### Clean up build artifacts
 build: ### Compile project
 	cargo build
 
+.PHONY: build-docker
+build-docker: ### Build Docker image
+	docker build -t tinysearch/cli .
+
 .PHONY: install
 install: ## Install tinysearch
 	cargo install --force --path tinysearch --features=bin
