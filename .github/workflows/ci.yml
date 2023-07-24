@@ -72,7 +72,7 @@ jobs:
 
       - name: Install trunk
         run:
-          cargo install --locked trunk@0.16.0 # latest on 2023.03.10
+          cargo install --locked trunk@0.17.2 # latest on 2023.07.24
 
       - name: Print trunk version
         run: trunk --version
