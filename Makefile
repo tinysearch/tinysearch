@@ -7,7 +7,7 @@ help: ## This help message
 
 .PHONY: lint
 lint: ### Lint project using clippy
-	cargo clippy
+	cargo clippy --all-targets --all-features -- -D warnings
 
 .PHONY: clean
 clean: ### Clean up build artifacts
