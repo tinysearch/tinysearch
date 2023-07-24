@@ -151,7 +151,7 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         with:
           command: publish
-          args: --manifest-path bin/Cargo.toml
+          args: --manifest-path tinysearch/Cargo.toml
           
       - name: Create Github release for Linux, Windows, and macOS
         uses: softprops/action-gh-release@v1
