@@ -19,7 +19,7 @@ build: ### Compile project
 
 .PHONY: install
 install: ## Install tinysearch
-	cargo install --force --path tinysearch 
+	cargo install --force --path tinysearch --features=bin
 
 .PHONY: test
 test: ## Run unit tests
