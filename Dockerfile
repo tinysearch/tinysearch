@@ -54,6 +54,8 @@ RUN set -eux -o pipefail; \
 
 COPY --from=binary-build /usr/local/bin/ /usr/local/bin/
 COPY --from=binary-build /usr/local/cargo/bin/ /usr/local/bin/
+# Copy tinysearch build directory to be used as engine (see `--engine-version` option below)
+COPY --from=binary-build /tmp/tinysearch/tinysearch/ tinysearch
 
 # crate cache init. No need to download crate for future usage
 RUN set -eux -o pipefail; \
