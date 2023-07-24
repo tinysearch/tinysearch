@@ -16,7 +16,7 @@ clean: ### Clean up build artifacts
 
 .PHONY: build
 build: ### Compile project
-	cargo build
+	cargo build --features=bin
 
 .PHONY: build-docker
 build-docker: ### Build Docker image

@@ -67,7 +67,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --target ${{ matrix.target }}
+          args: --release --features=bin --target ${{ matrix.target }}
           use-cross: true 
 
       - name: Optimize and package binary
