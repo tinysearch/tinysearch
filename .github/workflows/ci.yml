@@ -111,7 +111,7 @@ jobs:
         continue-on-error: ${{ matrix.rust == 'nightly' }}
 
       - name: Build WASM package from test index
-        run: RUST_LOG=debug tinysearch -e 'path= "'$PWD'/tinysearch"' fixtures/index.json
+        run: RUST_LOG=debug tinysearch --engine-version 'path= "'$PWD'/tinysearch"' fixtures/index.json
         continue-on-error: ${{ matrix.rust == 'nightly' }}
       
       - name: Build examples

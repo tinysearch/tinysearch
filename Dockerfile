@@ -58,7 +58,7 @@ COPY --from=binary-build /usr/local/cargo/bin/ /usr/local/bin/
 # crate cache init. No need to download crate for future usage
 RUN set -eux -o pipefail; \
     echo '[{"title":"","body":"","url":""}]' > build.json; \
-    tinysearch build.json; \
+    tinysearch --engine-version 'path= "'$PWD'/tinysearch"' build.json; \
     rm -rf /tmp/*
 
 ENTRYPOINT ["tinysearch"]
