@@ -1,7 +1,7 @@
 [package]
 name = "tinysearch"
 authors = ["Matthias Endler <matthias-endler@gmx.net>"]
-version = "0.8.0"
+version = "0.8.1"
 edition = "2021"
 description = "A tiny search engine for static websites"
 license = "Apache-2.0/MIT"
@@ -9,7 +9,8 @@ documentation = "https://github.com/mre/tinysearch/blob/master/README.md"
 homepage = "https://github.com/mre/tinysearch"
 repository = "https://github.com/mre/tinysearch"
 
-include = ["src/**/*"]
+readme = "README.md"
+include = ["src/**/*", "assets/**/*", "README.md"]
 
 [lib]
 
