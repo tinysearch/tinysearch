@@ -6,5 +6,6 @@ dist = "dist"
 stage = "pre_build"
 command = "sh"
 command_arguments = [
-    "-c", 
-    "cd ../../ && cargo run --features=bin --release -- -m storage -p examples/yew-example-storage/src/ fixtures/index.json"]
+    "-c",
+    "cd ../../ && cargo run --features=bin --release -- -m storage --engine-version 'path=\"../../..\"' -p examples/yew-example-storage/src/ fixtures/index.json",
+]
