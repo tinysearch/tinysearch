@@ -9,7 +9,7 @@ console_error_panic_hook = "0.1"
 wasm-bindgen = "0.2"
 ybc = "0.2"
 yew = "0.18"
-example_search = {path = "./example-search", features=[]}
+example_search = { path = "./example-search", features = [] }
 
 
 [workspace]

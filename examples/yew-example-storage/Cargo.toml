@@ -10,7 +10,7 @@ wasm-bindgen = "0.2"
 ybc = "0.2"
 yew = "0.18"
 once_cell = "*"
-tinysearch = {path="../../tinysearch"}
+tinysearch = { path = "../.." }
 
 [workspace]
 members = []
