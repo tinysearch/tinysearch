@@ -10,7 +10,7 @@ homepage = "https://github.com/mre/tinysearch"
 repository = "https://github.com/mre/tinysearch"
 
 readme = "README.md"
-include = ["src/**/*", "assets", "README.md"]
+include = ["src", "assets", "README.md"]
 
 [lib]
 
