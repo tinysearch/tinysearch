@@ -61,7 +61,7 @@ COPY --from=binary-build /tmp/tinysearch/tinysearch/ /app/tinysearch
 
 # Initialize crate cache
 RUN echo '[{"title":"","body":"","url":""}]' > build.json && \
-    tinysearch --engine-version 'path= "'$PWD'/tinysearch"' build.json && \
+    tinysearch --engine-version 'path= "'$PWD'"' build.json && \
     rm -rf /tmp/*
 
 ENTRYPOINT ["tinysearch"]
