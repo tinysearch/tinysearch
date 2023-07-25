@@ -20,7 +20,7 @@ build: ### Compile project
 
 .PHONY: build-docker
 build-docker: ### Build Docker image
-	docker build -t tinysearch/cli .
+	docker build --progress=plain -t tinysearch/cli .
 
 .PHONY: install
 install: ## Install tinysearch
