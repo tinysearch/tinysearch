@@ -3,7 +3,7 @@
 [package]
 name = "THIS_VALUE_SHOULD_BE_FILLED"
 authors = ["Matthias Endler <matthias-endler@gmx.net>"]
-version = "0.8.1"
+version = "0.8.2"
 edition = "2021"
 description = "A tiny search engine for static websites"
 license = "Apache-2.0/MIT"
@@ -15,27 +15,26 @@ wasm-opt = false
 crate-type = ["cdylib"]
 
 [features]
-default=["bind"]
-bind=["wee_alloc", "wasm-bindgen", "serde-wasm-bindgen"]
+default = ["bind"]
+bind = ["wee_alloc", "wasm-bindgen", "serde-wasm-bindgen"]
 
 [dependencies]
 once_cell = "1.8.0"
 tinysearch = "THIS_VALUE_SHOULD_BE_FILLED"
 
 
-wee_alloc = {version = "0.4.5", optional = true}
-wasm-bindgen= {version = "0.2.75", optional = true}
-serde-wasm-bindgen = {version = "0.4", optional = true}
+wee_alloc = { version = "0.4.5", optional = true }
+wasm-bindgen = { version = "0.2.75", optional = true }
+serde-wasm-bindgen = { version = "0.4", optional = true }
 
 [dependencies.xorf]
 version = "0.7.2"
-default-features = false 
+default-features = false
 
 [workspace]
 members = []
 
 [profile.release]
-opt-level = 's'  # Optimize for size.
+opt-level = 's'   # Optimize for size.
 lto = true
 codegen-units = 1
-
