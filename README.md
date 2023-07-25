@@ -81,14 +81,13 @@ cargo install tinysearch
 A JSON file, which contains the content to index, is required as an input.
 Please take a look at the [example file](fixtures/index.json).
 
+ℹ️ The `body` field in the JSON document is optional and can be skipped to just index post titles.
+
 Once you created the index, you can run
 
 ```
 tinysearch fixtures/index.json
 ```
-
-ℹ️ You can take a look at the code examples for different static site generators [here](https://github.com/mre/tinysearch/tree/master/howto).  
-ℹ️ The `body` field in the JSON document is optional and can be skipped to just index post titles.
 
 This will create a WASM module and the JavaScript glue code to integrate it into
 your website. You can open the `demo.html` from any webserver to see the
@@ -101,6 +100,9 @@ python3 -m http.server
 ```
 
 then browse to http://0.0.0.0:8000/demo.html to run the demo.
+
+You can also take a look at the code examples for different static site
+generators [here](https://github.com/mre/tinysearch/tree/master/howto).  
 
 ## Advanced Usage
 
