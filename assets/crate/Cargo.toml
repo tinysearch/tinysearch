@@ -3,7 +3,7 @@
 [package]
 name = "THIS_VALUE_SHOULD_BE_FILLED"
 authors = ["Matthias Endler <matthias-endler@gmx.net>"]
-version = "0.7.0"
+version = "0.8.1"
 edition = "2021"
 description = "A tiny search engine for static websites"
 license = "Apache-2.0/MIT"

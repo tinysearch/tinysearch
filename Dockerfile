@@ -59,10 +59,13 @@ COPY --from=builder /usr/local/cargo/bin/ /usr/local/bin/
 # Copy tinysearch build directory to be used as the engine (see `--engine-version` option below)
 # This is done because we want to use the same image for building and running tinysearch
 # and not depend on crates.io for the engine
-COPY --from=builder /build/tinysearch/ /app/engine
+COPY --from=builder /build/tinysearch/ /engine
 
 # Initialize crate cache
 RUN echo '[{"title":"","body":"","url":""}]' > build.json && \
-    tinysearch --engine-version 'path= "/app/engine"' build.json
+    tinysearch --engine-version 'path= "/engine"' build.json && \
+    rm -r build.json wasm_output
 
 ENTRYPOINT ["tinysearch"]
+# Use the engine we built above and not the one from crates.io
+CMD ["--engine-version", "path= \"/engine\""]
