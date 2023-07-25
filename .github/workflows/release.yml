@@ -104,7 +104,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release
+          args: --release --features=bin
           use-cross: true
 
       - name: Optimize and package binary
@@ -142,7 +142,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release
+          args: --release --features=bin
           use-cross: true
         
       - name: Upload binary
