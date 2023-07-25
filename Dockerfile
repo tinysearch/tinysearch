@@ -56,8 +56,10 @@ RUN apk add --update --no-cache libc6-compat musl-dev binaryen openssl-dev && \
 # Copy the build binaries and tinysearch directory
 COPY --from=binary-build /usr/local/bin/ /usr/local/bin/
 COPY --from=binary-build /usr/local/cargo/bin/ /usr/local/bin/
-# Copy tinysearch build directory to be used as engine (see `--engine-version` option below)
-COPY --from=binary-build /tmp/tinysearch/tinysearch/ /app/tinysearch
+# Copy tinysearch build directory to be used as the engine (see `--engine-version` option below)
+# This is done because we want to use the same image for building and running tinysearch
+# and not depend on crates.io for the engine
+COPY --from=binary-build /tmp/tinysearch/ /app/tinysearch
 
 # Initialize crate cache
 RUN echo '[{"title":"","body":"","url":""}]' > build.json && \
