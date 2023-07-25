@@ -10,4 +10,4 @@ stage = "pre_build"
 command = "sh"
 command_arguments = [
     "-c", 
-    "cd ../../ && cargo run --features=bin --release -- -m crate -p examples/yew-example-crate/example-search/ --crate-name example_search --engine-version 'path=\"../../../tinysearch\"' --non-top-level-crate fixtures/index.json"]
+    "cd ../../ && cargo run --features=bin --release -- -m crate -p examples/yew-example-crate/example-search/ --crate-name example_search --engine-version 'path=\"../../..\"' --non-top-level-crate fixtures/index.json"]
