@@ -72,9 +72,17 @@ jobs:
           use-cross: true 
 
       - name: Optimize and package binary
+        if: ${{ !contains(matrix.target, 'mips') }}
         run: |
           cd target/${{ matrix.target }}/release
           ${GNU_PREFIX}strip tinysearch
+          chmod +x tinysearch
+          tar -c tinysearch | gzip > tinysearch.tar.gz
+
+      - name: Package binary without optimization
+        if: ${{ contains(matrix.target, 'mips') }}
+        run: |
+          cd target/${{ matrix.target }}/release
           chmod +x tinysearch
           tar -c tinysearch | gzip > tinysearch.tar.gz
 
