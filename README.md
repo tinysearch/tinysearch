@@ -1,5 +1,7 @@
 # tinysearch
 
+![Logo](logo.svg)
+
 ![CI](https://github.com/mre/tinysearch/workflows/CI/badge.svg)
 
 tinysearch is a lightweight, fast, full-text search engine. It is designed for
