@@ -52,37 +52,19 @@ underlying technologies are subject to change.
 
 ## Installation
 
-[wasm-pack](https://rustwasm.github.io/wasm-pack/) is required to build the WASM
-module. Install it with
+You can install tinysearch directly from crates.io:
 
 ```sh
-cargo install wasm-pack
+cargo install tinysearch
 ```
 
-To optimize the JavaScript output, you'll also need
-[terser](https://github.com/terser/terser):
-
-```
-npm install terser -g
-```
-
-If you want to make the WebAssembly as small as possible, we recommend to
-install [binaryen](https://github.com/WebAssembly/binaryen) as well. On macOS
-you can install it with [homebrew](https://brew.sh/):
+To optimize the WebAssembly output, optionally install [binaryen](https://github.com/WebAssembly/binaryen). On macOS you can install it with [homebrew](https://brew.sh/):
 
 ```sh
 brew install binaryen
 ```
 
-Alternatively, you can download the binary from the
-[release page](https://github.com/WebAssembly/binaryen/releases) or use your OS
-package manager.
-
-After that, you can install tinysearch itself:
-
-```
-cargo install tinysearch
-```
+Alternatively, you can download the binary from the [release page](https://github.com/WebAssembly/binaryen/releases) or use your OS package manager.
 
 ## Usage
 
@@ -92,25 +74,38 @@ Please take a look at the [example file](fixtures/index.json).
 ℹ️ The `body` field in the JSON document is optional and can be skipped to just
 index post titles.
 
-Once you created the index, you can run
+Once you created the index, you can generate a WebAssembly search engine:
 
-```
-tinysearch fixtures/index.json
-```
+```sh
+# Generate WASM files for browser integration
+tinysearch -m wasm -p wasm_output fixtures/index.json
 
-This will create a WASM module and the JavaScript glue code to integrate it into
-your website. You can open the `demo.html` from any webserver to see the result.
-
-For example, Python has a built-in webserver that can be used for a quick test:
-
-```
-python3 -m http.server
+# With optimization (requires wasm-opt from binaryen)
+tinysearch -m wasm -p wasm_output -o fixtures/index.json
 ```
 
-then browse to http://0.0.0.0:8000/demo.html to run the demo.
+This creates a dependency-free WASM module using vanilla `cargo build` instead of `wasm-pack`.
 
-You can also take a look at the code examples for different static site
-generators [here](https://github.com/mre/tinysearch/tree/master/howto).
+## Demo
+
+After generating the WASM files, check out the interactive demos:
+
+```sh
+# Quick test with example data
+make example
+
+# Run browser demo
+cd demo
+python3 -m http.server 8000
+# Open http://localhost:8000/browser.html
+
+# Run Node.js demo
+node node.js
+```
+
+See [demo/README.md](demo/README.md) for complete integration examples and performance metrics.
+
+You can also take a look at the code examples for different static site generators [here](https://github.com/mre/tinysearch/tree/master/howto).
 
 ## Advanced Usage
 
@@ -135,7 +130,7 @@ Here is how to quickly try tinysearch with Docker:
 # Download a sample blog index from endler.dev
 curl -O https://raw.githubusercontent.com/tinysearch/tinysearch/master/fixtures/index.json
 # Create the WASM output
-docker run -v $PWD:/app tinysearch/cli --engine-version path=\"/engine\" --path /app/wasm_output /app/index.json
+docker run -v $PWD:/app tinysearch/cli -m wasm -p /app/wasm_output /app/index.json
 ```
 
 By default, the most recent stable Alpine Rust image is used. To get nightly,
