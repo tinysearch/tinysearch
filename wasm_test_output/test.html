@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>TinySearch WASM Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        #results { margin-top: 20px; }
+        .result { margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+        .error { color: red; }
+        .success { color: green; }
+        input { padding: 8px; margin: 4px; }
+        button { padding: 8px 16px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 TinySearch WASM Test</h1>
+    <input type="text" id="search-input" placeholder="Enter search query (try 'rust', 'javascript')" value="rust" />
+    <button onclick="performSearch()">Search</button>
+    <div id="status">Loading...</div>
+    <div id="results"></div>
+
+    <script type="module">
+        import { init_tinysearch } from './tinysearch_engine.js';
+        
+        let searchEngine = null;
+        
+        async function initializeSearch() {
+            try {
+                searchEngine = await init_tinysearch();
+                console.log('TinySearch initialized successfully');
+                document.getElementById('status').innerHTML = '<span class="success">✅ Search engine initialized!</span>';
+                
+                // Auto-search "rust" on load
+                performSearch();
+            } catch (error) {
+                console.error('Failed to initialize search:', error);
+                document.getElementById('status').innerHTML = '<span class="error">❌ Failed to initialize: ' + error.message + '</span>';
+            }
+        }
+        
+        window.performSearch = function() {
+            if (!searchEngine) {
+                document.getElementById('results').innerHTML = '<p class="error">Search engine not initialized</p>';
+                return;
+            }
+            
+            const query = document.getElementById('search-input').value;
+            if (!query.trim()) {
+                document.getElementById('results').innerHTML = '<p>Please enter a search query</p>';
+                return;
+            }
+            
+            try {
+                const startTime = performance.now();
+                const results = searchEngine.search(query, 5);
+                const endTime = performance.now();
+                const searchTime = (endTime - startTime).toFixed(2);
+                
+                console.log('Search results:', results);
+                
+                let html = `<h3>🎯 Results for "${query}" (${searchTime}ms):</h3>`;
+                
+                if (results.length === 0) {
+                    html += '<p>No results found. Try searching for "rust", "javascript", or "blog".</p>';
+                } else {
+                    results.forEach((result, i) => {
+                        html += `<div class="result">`;
+                        html += `<strong>${i + 1}. ${result.title}</strong><br>`;
+                        html += `<a href="${result.url}" target="_blank">${result.url}</a>`;
+                        if (result.meta) html += `<br><em>Meta: ${result.meta}</em>`;
+                        html += `</div>`;
+                    });
+                }
+                
+                document.getElementById('results').innerHTML = html;
+            } catch (error) {
+                console.error('Search failed:', error);
+                document.getElementById('results').innerHTML = '<p class="error">❌ Search failed: ' + error.message + '</p>';
+            }
+        };
+        
+        // Add Enter key support
+        document.getElementById('search-input').addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                performSearch();
+            }
+        });
+        
+        // Initialize on page load
+        initializeSearch();
+    </script>
+</body>
+</html>

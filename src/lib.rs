@@ -94,12 +94,12 @@ fn tokenize(s: &str) -> Vec<String> {
 }
 
 /// Performs a search query against the provided filters
-/// 
+///
 /// # Arguments
 /// * `filters` - The search index containing all posts and their filters
 /// * `query` - The search query string
 /// * `num_results` - Maximum number of results to return
-/// 
+///
 /// # Returns
 /// Vector of `PostId` references, sorted by relevance score (highest first)
 pub fn search(filters: &'_ Filters, query: String, num_results: usize) -> Vec<&'_ PostId> {

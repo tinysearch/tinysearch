@@ -331,38 +331,142 @@ impl Stage for Wasm {
 
     fn build(self: &Wasm) -> Result<(), Error> {
         self.c.build().context("Failed generating crate")?;
-        println!("Compiling WASM module using wasm-pack");
+        println!("Compiling WASM module using vanilla cargo build");
         let crate_path = self.crate_path.path();
-        run_output(
-            Command::new("wasm-pack")
-                .arg("build")
-                .arg(&crate_path)
-                .arg("--target")
-                .arg("web")
-                .arg("--release")
-                .arg("--out-dir")
-                .arg(&self.out_path),
-        )?;
         let wasm_name = self.c.crate_name.replace('-', "_");
 
+        // Build with vanilla cargo
+        run_output(
+            Command::new("cargo")
+                .current_dir(&crate_path)
+                .arg("build")
+                .arg("--target")
+                .arg("wasm32-unknown-unknown")
+                .arg("--release"),
+        )?;
+
+        // Copy the WASM file to output directory
+        let wasm_file = format!("{}.wasm", &wasm_name);
+        let source_wasm = crate_path
+            .join("target/wasm32-unknown-unknown/release")
+            .join(&wasm_file);
+        let dest_wasm = self.out_path.join(&wasm_file);
+        fs::copy(&source_wasm, &dest_wasm).with_context(|| {
+            format!(
+                "Failed to copy {} to {}",
+                source_wasm.display(),
+                dest_wasm.display()
+            )
+        })?;
+
+        // Generate simple JS loader
+        let js_content = format!(
+            r#"
+class TinySearchWasm {{
+    constructor(wasmInstance) {{
+        this.wasm = wasmInstance;
+        this.memory = wasmInstance.exports.memory;
+        this.searchFn = wasmInstance.exports.search;
+        this.freeFn = wasmInstance.exports.free_search_result;
+    }}
+
+    // Convert JS string to WASM memory
+    stringToWasm(str) {{
+        const bytes = new TextEncoder().encode(str + '\0');
+        const ptr = this.wasm.exports.malloc ? this.wasm.exports.malloc(bytes.length) : this.allocString(bytes.length);
+        const mem = new Uint8Array(this.memory.buffer, ptr, bytes.length);
+        mem.set(bytes);
+        return ptr;
+    }}
+
+    // Read string from WASM memory
+    wasmToString(ptr) {{
+        if (ptr === 0) return null;
+        const mem = new Uint8Array(this.memory.buffer);
+        let end = ptr;
+        while (mem[end] !== 0) end++;
+        return new TextDecoder().decode(mem.subarray(ptr, end));
+    }}
+
+    // Simple string allocation fallback
+    allocString(len) {{
+        // This is a simple fallback - WASM linear memory grows as needed
+        const pages = Math.ceil(len / 65536);
+        this.memory.grow(pages);
+        return this.memory.buffer.byteLength - len;
+    }}
+
+    // Perform search
+    search(query, numResults = 5) {{
+        const queryPtr = this.stringToWasm(query);
+        const resultPtr = this.searchFn(queryPtr, numResults);
+        
+        if (resultPtr === 0) {{
+            return [];
+        }}
+
+        const jsonStr = this.wasmToString(resultPtr);
+        this.freeFn(resultPtr);
+        
+        try {{
+            return JSON.parse(jsonStr);
+        }} catch (e) {{
+            console.error('Failed to parse search results:', e);
+            return [];
+        }}
+    }}
+}}
+
+export async function init_tinysearch() {{
+    try {{
+        // Try streaming first (preferred)
+        const wasmModule = await WebAssembly.instantiateStreaming(fetch('./{wasm_file}'));
+        return new TinySearchWasm(wasmModule.instance);
+    }} catch (e) {{
+        console.warn('Streaming failed, falling back to fetch + instantiate:', e.message);
+        // Fallback for servers with wrong MIME type
+        const response = await fetch('./{wasm_file}');
+        const wasmBytes = await response.arrayBuffer();
+        const wasmModule = await WebAssembly.instantiate(wasmBytes);
+        return new TinySearchWasm(wasmModule.instance);
+    }}
+}}
+
+// Backward compatibility
+export {{ TinySearchWasm as TinySearch }};
+"#,
+            wasm_file = wasm_file
+        );
+
+        let js_path = self.out_path.join(format!("{}.js", &wasm_name));
+        fs::write(&js_path, js_content)
+            .with_context(|| format!("Failed writing JS loader to {}", js_path.display()))?;
+
+        // Optional optimization
         if self.optimize {
-            let wasm_file = format!("{}_bg.wasm", &wasm_name);
-            run_output(
+            if run_output(
                 Command::new("wasm-opt")
                     .current_dir(&self.out_path)
                     .arg("-Oz")
                     .arg("-o")
                     .arg(&wasm_file)
                     .arg(&wasm_file),
-            )?;
+            ).is_ok() {
+                println!("Optimized WASM with wasm-opt");
+            } else {
+                println!("wasm-opt not available, skipping optimization");
+            }
         }
+
         let html_path = self.out_path.join("demo.html");
         fs::write(
             &html_path,
             assets::DEMO_HTML.replace("{WASM_NAME}", &wasm_name),
         )
         .with_context(|| format!("Failed writing demo.html to {}", &html_path.display()))?;
-        println!("All done! Open the output folder with a web server to try the demo.");
+        println!("All done! WASM module at: {}", dest_wasm.display());
+        println!("JS loader at: {}", js_path.display());
+        println!("Demo at: {}", html_path.display());
         Ok(())
     }
 }

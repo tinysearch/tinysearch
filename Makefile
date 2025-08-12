@@ -42,6 +42,9 @@ test-unit: ## Run unit tests only
 test-integration: ## Run integration tests only
 	cargo test --test integration_test
 
+test-wasm: check-wasm-target ## Run WASM integration tests only
+	cargo test --test integration_test test_cli_wasm_mode
+
 lint: ## Run clippy linter
 	cargo clippy --all-targets --all-features -- -D warnings
 
@@ -60,7 +63,7 @@ audit: ## Run security audit
 run: ## Run tinysearch with sample input
 	cargo run --features=bin -- fixtures/index.json
 
-example: ## Generate WASM output with sample data
+example: check-wasm-target ## Generate WASM output with sample data
 	mkdir -p wasm_output
 	cargo run --features=bin -- -m wasm -p wasm_output fixtures/index.json
 
@@ -82,6 +85,11 @@ ci-audit: audit ## Run audit for CI
 dev-setup: ## Set up development environment
 	rustup component add clippy rustfmt
 	cargo install cargo-audit cargo-machete
+	@echo "Installing WASM target for builds..."
+	rustup target add wasm32-unknown-unknown
+
+check-wasm-target: ## Check if wasm32-unknown-unknown target is installed
+	@rustup target list --installed | grep -q "wasm32-unknown-unknown" || (echo "wasm32-unknown-unknown target not found. Run 'make dev-setup' or 'rustup target add wasm32-unknown-unknown'" && exit 1)
 
 dev-watch: ## Watch for changes and run tests
 	cargo watch -x 'test --features=bin'

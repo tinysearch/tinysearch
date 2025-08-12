@@ -75,10 +75,10 @@ jobs:
         with:
           key: build-${{ matrix.os }}-${{ matrix.rust }}
 
-      - name: Install wasm-pack
+      - name: Install WASM target
         if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
         run: |
-          curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+          rustup target add wasm32-unknown-unknown
     
       - name: Install trunk
         if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
