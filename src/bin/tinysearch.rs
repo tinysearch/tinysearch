@@ -7,7 +7,7 @@ use utils::assets;
 use utils::index;
 use utils::storage;
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 pub use anyhow::{Error, Result};
 use argh::FromArgs;
 use std::path::PathBuf;
@@ -15,7 +15,7 @@ use std::process::{Command, Stdio};
 use std::str::FromStr;
 use std::{env, fs};
 use tempfile::TempDir;
-use toml_edit::{value, Document};
+use toml_edit::{DocumentMut, value};
 
 use index::Posts;
 use strum::{EnumString, IntoStaticStr};
@@ -26,9 +26,9 @@ fn ensure_exists(path: PathBuf) -> Result<PathBuf, Error> {
     }
     let path = path.canonicalize()?;
     if !path.exists() {
-        for path in fs::read_dir(&path)? {
-            println!("Name: {}", path.unwrap().path().display())
-        }
+        fs::read_dir(&path)?
+            .map(|entry| entry.unwrap().path())
+            .for_each(|path| println!("Name: {}", path.display()));
         bail!("Directory could not be created at {}", &path.display());
     }
     Ok(path)
@@ -73,7 +73,7 @@ enum OutputMode {
 }
 
 fn parse_engine_version(str: &str) -> Result<toml_edit::Table, String> {
-    let doc = str.parse::<Document>().map_err(|e| e.to_string())?;
+    let doc = str.parse::<DocumentMut>().map_err(|e| e.to_string())?;
     Ok(doc.as_table().clone())
 }
 
@@ -140,7 +140,7 @@ struct Opt {
         short = 'e',
         long = "engine-version",
         from_str_fn(parse_engine_version),
-        default = "format!(\"version=\\\"{}\\\"\", env!(\"CARGO_PKG_VERSION\")).parse::<toml_edit::Document>().unwrap().as_table().clone()"
+        default = "format!(\"version=\\\"{}\\\"\", env!(\"CARGO_PKG_VERSION\")).parse::<toml_edit::DocumentMut>().unwrap().as_table().clone()"
     )]
     engine_version: toml_edit::Table,
 
@@ -184,18 +184,18 @@ impl Stage for Search {
     }
 
     fn build(&self) -> Result<(), Error> {
-        use tinysearch::{search as base_search, Storage};
+        use tinysearch::{Storage, search as base_search};
         let bytes = fs::read(&self.storage_file).with_context(|| {
             format!("Failed to read input file: {}", self.storage_file.display())
         })?;
         let filters = Storage::from_bytes(&bytes)?.filters;
         let results = base_search(&filters, self.term.clone(), self.num_searches);
-        for result in results {
+        results.iter().for_each(|result| {
             println!(
                 "Title: {}, Url: {}, Meta: {:?}",
                 result.0, result.1, result.2
             );
-        }
+        });
         Ok(())
     }
 }
@@ -270,7 +270,7 @@ impl Stage for Crate {
             self.out_path.display()
         );
         let cargo_toml = self.out_path.join("Cargo.toml");
-        let mut cargo_toml_contents = assets::CRATE_CARGO_TOML.parse::<Document>()?;
+        let mut cargo_toml_contents = assets::CRATE_CARGO_TOML.parse::<DocumentMut>()?;
         cargo_toml_contents["package"]["name"] = value(self.crate_name.clone());
         cargo_toml_contents["dependencies"]["tinysearch"] =
             toml_edit::Item::Table(self.engine_version.clone());
