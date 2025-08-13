@@ -37,6 +37,9 @@ jobs:
         with:
           key: test-${{ runner.os }}
 
+      - name: Install WASM target
+        run: rustup target add wasm32-unknown-unknown
+
       - name: Check formatting
         run: cargo fmt --all -- --check
 
