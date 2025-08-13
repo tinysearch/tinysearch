@@ -77,11 +77,14 @@ index post titles.
 Once you created the index, you can generate a WebAssembly search engine:
 
 ```sh
-# Generate WASM files for browser integration
+# Generate WASM files with demo for development
 tinysearch -m wasm -p wasm_output fixtures/index.json
 
+# Production-ready output (WASM only, no demo files)
+tinysearch --release -m wasm -p wasm_output fixtures/index.json
+
 # With optimization (requires wasm-opt from binaryen)
-tinysearch -m wasm -p wasm_output -o fixtures/index.json
+tinysearch --release -o -m wasm -p wasm_output fixtures/index.json
 ```
 
 This creates a dependency-free WASM module using vanilla `cargo build` instead of `wasm-pack`.

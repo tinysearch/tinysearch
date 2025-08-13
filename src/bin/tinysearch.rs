@@ -93,6 +93,10 @@ struct Opt {
     #[argh(switch)]
     version: bool,
 
+    /// create production-ready output without demo files
+    #[argh(switch)]
+    release: bool,
+
     /// output mode
     #[argh(option, short = 'm', long = "mode", default = "OutputMode::Wasm")]
     output_mode: OutputMode,
@@ -301,6 +305,7 @@ struct Wasm {
     out_path: PathBuf,
     crate_path: DirOrTemp,
     optimize: bool,
+    release: bool,
 }
 
 impl Wasm {
@@ -326,6 +331,7 @@ impl Stage for Wasm {
             out_path: ensure_exists(opt.out_path.clone())?,
             crate_path,
             optimize: opt.optimize,
+            release: opt.release,
         })
     }
 
@@ -439,8 +445,10 @@ export {{ TinySearchWasm as TinySearch }};
         );
 
         let js_path = self.out_path.join(format!("{}.js", &wasm_name));
-        fs::write(&js_path, js_content)
-            .with_context(|| format!("Failed writing JS loader to {}", js_path.display()))?;
+        if !self.release {
+            fs::write(&js_path, js_content)
+                .with_context(|| format!("Failed writing JS loader to {}", js_path.display()))?;
+        }
 
         // Optional optimization
         if self.optimize {
@@ -460,15 +468,22 @@ export {{ TinySearchWasm as TinySearch }};
             }
         }
 
-        let html_path = self.out_path.join("demo.html");
-        fs::write(
-            &html_path,
-            assets::DEMO_HTML.replace("{WASM_NAME}", &wasm_name),
-        )
-        .with_context(|| format!("Failed writing demo.html to {}", &html_path.display()))?;
-        println!("All done! WASM module at: {}", dest_wasm.display());
-        println!("JS loader at: {}", js_path.display());
-        println!("Demo at: {}", html_path.display());
+        if !self.release {
+            let html_path = self.out_path.join("demo.html");
+            fs::write(
+                &html_path,
+                assets::DEMO_HTML.replace("{WASM_NAME}", &wasm_name),
+            )
+            .with_context(|| format!("Failed writing demo.html to {}", &html_path.display()))?;
+            println!("All done! WASM module at: {}", dest_wasm.display());
+            println!("JS loader at: {}", js_path.display());
+            println!("Demo at: {}", html_path.display());
+        } else {
+            println!("Created production-ready WASM module");
+            println!("See docs for usage instructions");
+            println!("Path: {}", dest_wasm.display());
+            println!("Size: {} bytes", dest_wasm.metadata()?.len());
+        }
         Ok(())
     }
 }

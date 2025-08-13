@@ -63,6 +63,9 @@ audit: ## Run security audit
 run: ## Run tinysearch with sample input
 	cargo run --features=bin -- fixtures/index.json
 
+release: ## Run tinysearch release build
+	cargo run --features=bin -- --release fixtures/index.json
+
 example: check-wasm-target ## Generate WASM output with sample data
 	mkdir -p wasm_output
 	cargo run --features=bin -- -m wasm -p wasm_output fixtures/index.json
