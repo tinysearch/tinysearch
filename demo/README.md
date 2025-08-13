@@ -1,6 +1,6 @@
 # TinySearch WASM Demo
 
-This directory contains demo applications showing how to use TinySearch compiled to WebAssembly.
+This directory contains a browser demo showing how to use TinySearch compiled to WebAssembly.
 
 ## Prerequisites
 
@@ -55,47 +55,6 @@ const search = {
 
 // Perform search
 const results = search.search("your query", 5);
-```
-
-## Node.js Demo
-
-### Quick Start
-
-```bash
-# From the demo directory
-node node.js
-```
-
-### Output
-
-```
-TinySearch WASM Node.js Demo
-============================
-
-Initializing WASM module...
-WASM module loaded successfully
-
-Searching for: "rust"
-Found 5 results in 1ms
-  1. The Future of Rust
-     https://endler.dev/2017/future-of-rust/
-  ...
-
-Performance Test
-----------------
-Average search time: 0.078ms (1000 iterations)
-```
-
-### Integration
-
-```javascript
-const TinySearchWasm = require('./tinysearch-wrapper');
-
-async function setupSearch() {
-    const search = await TinySearchWasm.init('../wasm_output/tinysearch_engine.wasm');
-    const results = search.search('query', 5);
-    return results;
-}
 ```
 
 ## Performance

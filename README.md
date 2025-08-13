@@ -98,9 +98,6 @@ make example
 cd demo
 python3 -m http.server 8000
 # Open http://localhost:8000/browser.html
-
-# Or run the Node.js version
-node node.js
 ```
 
 See [demo/README.md](demo/README.md) for integration examples.

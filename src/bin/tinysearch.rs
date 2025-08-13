@@ -451,7 +451,9 @@ export {{ TinySearchWasm as TinySearch }};
                     .arg("-o")
                     .arg(&wasm_file)
                     .arg(&wasm_file),
-            ).is_ok() {
+            )
+            .is_ok()
+            {
                 println!("Optimized WASM with wasm-opt");
             } else {
                 println!("wasm-opt not available, skipping optimization");
