@@ -55,7 +55,7 @@ class TinySearchWasm {
 }
 
 async function initTinySearch() {
-    const wasmPath = './wasm_output/tinysearch_engine.wasm';
+    const wasmPath = '../wasm_output/tinysearch_engine.wasm';
     
     if (!fs.existsSync(wasmPath)) {
         throw new Error(`WASM file not found at ${wasmPath}. Please run: make example`);

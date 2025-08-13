@@ -40,7 +40,7 @@ To integrate into your website:
 
 ```javascript
 // Load WASM module
-const response = await fetch('./path/to/tinysearch_engine.wasm');
+const response = await fetch('../wasm_output/tinysearch_engine.wasm');
 const wasmBytes = await response.arrayBuffer();
 const wasmModule = await WebAssembly.instantiate(wasmBytes);
 
@@ -92,7 +92,7 @@ Average search time: 0.078ms (1000 iterations)
 const TinySearchWasm = require('./tinysearch-wrapper');
 
 async function setupSearch() {
-    const search = await TinySearchWasm.init('./tinysearch_engine.wasm');
+    const search = await TinySearchWasm.init('../wasm_output/tinysearch_engine.wasm');
     const results = search.search('query', 5);
     return results;
 }
