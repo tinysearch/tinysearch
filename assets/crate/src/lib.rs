@@ -6,15 +6,12 @@ use tinysearch::{search as base_search, Filters, PostId, Storage};
 
 static FILTERS: OnceLock<Filters> = OnceLock::new();
 
-fn get_filters() -> &'static Filters {
-    FILTERS.get_or_init(|| {
+pub fn search_local(query: String, num_results: usize) -> Vec<&'static PostId> {
+    let filters = FILTERS.get_or_init(|| {
         let bytes = include_bytes!("storage");
         Storage::from_bytes(bytes).unwrap().filters
-    })
-}
-
-pub fn search_local(query: String, num_results: usize) -> Vec<&'static PostId> {
-    base_search(get_filters(), query, num_results)
+    });
+    base_search(filters, query, num_results)
 }
 
 /// Export for WASM - search function that takes C strings and returns JSON
