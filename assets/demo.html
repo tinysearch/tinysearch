@@ -5,7 +5,7 @@
     <title>TinySearch WASM Demo</title>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: system-ui, -apple-system, sans-serif;
             max-width: 800px;
             margin: 0 auto;
             padding: 40px 20px;
@@ -109,7 +109,10 @@
     </div>
 
     <script>
-        let searchEngine = null;
+        let wasmModule = null;
+        let memory = null;
+        let searchFunction = null;
+        let freeFunction = null;
         
         async function initializeSearch() {
             try {
@@ -119,49 +122,16 @@
                 }
                 
                 const wasmBytes = await response.arrayBuffer();
-                const wasmModule = await WebAssembly.instantiate(wasmBytes);
+                const module = await WebAssembly.instantiate(wasmBytes);
                 
-                searchEngine = {
-                    search: (query, maxResults = 5) => {
-                        try {
-                            // Allocate memory for the query string
-                            const queryBytes = new TextEncoder().encode(query + '\0');
-                            const queryPtr = wasmModule.instance.exports.malloc(queryBytes.length);
-                            const memory = new Uint8Array(wasmModule.instance.exports.memory.buffer);
-                            memory.set(queryBytes, queryPtr);
-                            
-                            // Call the search function
-                            const resultPtr = wasmModule.instance.exports.search(queryPtr, maxResults);
-                            
-                            // Free the query memory
-                            wasmModule.instance.exports.free(queryPtr);
-                            
-                            if (resultPtr === 0) {
-                                return [];
-                            }
-                            
-                            // Read the result string
-                            const resultView = new Uint8Array(wasmModule.instance.exports.memory.buffer, resultPtr);
-                            let resultLength = 0;
-                            while (resultView[resultLength] !== 0) {
-                                resultLength++;
-                            }
-                            
-                            const resultString = new TextDecoder().decode(resultView.slice(0, resultLength));
-                            
-                            // Free the result memory
-                            wasmModule.instance.exports.free_search_result(resultPtr);
-                            
-                            return JSON.parse(resultString);
-                        } catch (error) {
-                            console.error('Search error:', error);
-                            return [];
-                        }
-                    },
-                    
-                    malloc: wasmModule.instance.exports.malloc,
-                    free: wasmModule.instance.exports.free
-                };
+                wasmModule = module.instance;
+                memory = wasmModule.exports.memory;
+                searchFunction = wasmModule.exports.search;
+                freeFunction = wasmModule.exports.free_search_result;
+                
+                if (!searchFunction || !freeFunction || !memory) {
+                    throw new Error('Required WASM exports not found');
+                }
                 
                 document.getElementById('status').textContent = 'Search engine ready! Try entering a query above.';
                 document.getElementById('searchInput').disabled = false;
@@ -173,12 +143,42 @@
             }
         }
         
+        function stringToWasmPtr(str) {
+            const bytes = new TextEncoder().encode(str + '\0');
+            const ptr = wasmModule.exports.__wbindgen_malloc(bytes.length);
+            if (!ptr) {
+                // Fallback: write to a known memory location
+                const memoryArray = new Uint8Array(memory.buffer);
+                const startOffset = 1024; // Use a safe offset
+                memoryArray.set(bytes, startOffset);
+                return startOffset;
+            }
+            new Uint8Array(memory.buffer, ptr, bytes.length).set(bytes);
+            return ptr;
+        }
+        
+        function wasmPtrToString(ptr) {
+            if (ptr === 0) return null;
+            
+            const memoryArray = new Uint8Array(memory.buffer);
+            let length = 0;
+            
+            // Find the null terminator
+            while (memoryArray[ptr + length] !== 0) {
+                length++;
+                if (length > 1000000) break; // Safety limit
+            }
+            
+            const bytes = memoryArray.slice(ptr, ptr + length);
+            return new TextDecoder().decode(bytes);
+        }
+        
         function performSearch() {
             const query = document.getElementById('searchInput').value.trim();
             const resultsDiv = document.getElementById('results');
             const statusDiv = document.getElementById('status');
             
-            if (!searchEngine) {
+            if (!wasmModule) {
                 statusDiv.innerHTML = '<div class="error">Search engine not initialized</div>';
                 return;
             }
@@ -189,23 +189,70 @@
                 return;
             }
             
-            const startTime = performance.now();
-            const results = searchEngine.search(query, 10);
-            const endTime = performance.now();
-            const searchTime = (endTime - startTime).toFixed(3);
-            
-            if (results.length === 0) {
-                resultsDiv.innerHTML = '<div class="no-results">No results found</div>';
-                statusDiv.textContent = `No results found for "${query}" (${searchTime}ms)`;
-            } else {
-                const resultHTML = results.map(result => `
-                    <div class="result-item">
-                        <a href="${result.url}" class="result-title" target="_blank">${result.title}</a>
-                    </div>
-                `).join('');
+            try {
+                const startTime = performance.now();
                 
-                resultsDiv.innerHTML = resultHTML;
-                statusDiv.textContent = `Found ${results.length} result${results.length !== 1 ? 's' : ''} for "${query}" (${searchTime}ms)`;
+                // Allocate memory for query string
+                let queryPtr;
+                try {
+                    queryPtr = stringToWasmPtr(query);
+                } catch (e) {
+                    // Fallback: use a fixed memory location
+                    const queryBytes = new TextEncoder().encode(query + '\0');
+                    const memoryArray = new Uint8Array(memory.buffer);
+                    queryPtr = 1024; // Fixed offset
+                    memoryArray.set(queryBytes, queryPtr);
+                }
+                
+                // Call search function
+                const resultPtr = searchFunction(queryPtr, 10);
+                
+                // Free query memory if we allocated it
+                if (wasmModule.exports.__wbindgen_free && queryPtr > 1024) {
+                    wasmModule.exports.__wbindgen_free(queryPtr, query.length + 1);
+                }
+                
+                const endTime = performance.now();
+                const searchTime = (endTime - startTime).toFixed(3);
+                
+                if (resultPtr === 0) {
+                    resultsDiv.innerHTML = '<div class="no-results">No results found</div>';
+                    statusDiv.textContent = `No results found for "${query}" (${searchTime}ms)`;
+                    return;
+                }
+                
+                // Read result string
+                const resultString = wasmPtrToString(resultPtr);
+                
+                // Free result memory
+                freeFunction(resultPtr);
+                
+                if (!resultString) {
+                    resultsDiv.innerHTML = '<div class="no-results">No results found</div>';
+                    statusDiv.textContent = `No results found for "${query}" (${searchTime}ms)`;
+                    return;
+                }
+                
+                const results = JSON.parse(resultString);
+                
+                if (results.length === 0) {
+                    resultsDiv.innerHTML = '<div class="no-results">No results found</div>';
+                    statusDiv.textContent = `No results found for "${query}" (${searchTime}ms)`;
+                } else {
+                    const resultHTML = results.map(result => `
+                        <div class="result-item">
+                            <a href="${result.url}" class="result-title" target="_blank">${result.title}</a>
+                        </div>
+                    `).join('');
+                    
+                    resultsDiv.innerHTML = resultHTML;
+                    statusDiv.textContent = `Found ${results.length} result${results.length !== 1 ? 's' : ''} for "${query}" (${searchTime}ms)`;
+                }
+                
+            } catch (error) {
+                console.error('Search error:', error);
+                resultsDiv.innerHTML = '<div class="error">Search failed. Check console for details.</div>';
+                statusDiv.innerHTML = `<div class="error">Search failed: ${error.message}</div>`;
             }
         }
         

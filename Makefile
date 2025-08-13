@@ -19,6 +19,7 @@ clean: ## Clean up build artifacts
 	cargo clean
 	rm -rf wasm_output target/criterion
 	rm -rf examples/*/dist
+	rm -f tinysearch_engine.wasm tinysearch_engine.js demo.html
 	find . -name "*.wasm" -type f -delete
 	find . -name "*.js" -type f -path "*/pkg/*" -delete
 
@@ -67,10 +68,10 @@ example: check-wasm-target ## Generate WASM output with sample data
 	mkdir -p wasm_output
 	cargo run --features=bin -- -m wasm -p wasm_output fixtures/index.json
 
-demo: example ## Run interactive demo (generates WASM and starts server)
-	@echo "🚀 Starting TinySearch demo..."
-	@echo "📂 WASM files generated in wasm_output/"
-	@echo "🌐 Opening demo at http://localhost:8000/demo.html"
+demo: check-wasm-target ## Run interactive demo (generates WASM and starts server)
+	@echo "🚀 Building TinySearch and generating WASM demo..."
+	@cargo run --features=bin -- -m wasm -p . fixtures/index.json
+	@echo "🌐 Starting demo server at http://localhost:8000/demo.html"
 	@echo "   Press Ctrl+C to stop the server"
 	@echo ""
 	@python3 -m http.server 8000
