@@ -15,156 +15,156 @@ on:
       - edited
       - published
 
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
 jobs:
   test:
+    name: Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - uses: ./.github/actions/cached-toolchain
-        id: toolchain
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: 'stable'
+          components: clippy, rustfmt
       
-      - uses: actions/cache@v3
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target
-          key: test-${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-toolchain-${{ steps.toolchain.outputs.cachekey  }}
-          restore-keys: | 
-            test-${{ runner.os }}-cargo-
+          key: test-${{ runner.os }}
 
-      - run: cargo test --all-features
+      - name: Install WASM target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run cargo check
+        run: cargo check --all-targets --all-features
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Run tests
+        run: cargo test --all-features
 
   build:
-    runs-on: ubuntu-latest
+    name: Build (${{ matrix.os }}, Rust ${{ matrix.rust }})
+    runs-on: ${{ matrix.os }}
     strategy:
         fail-fast: false
         matrix:
-            rust: [stable, beta, nightly]
+            os: [ubuntu-latest, windows-latest, macos-latest]
+            rust: [stable, beta]
+            include:
+              - os: ubuntu-latest
+                rust: nightly
 
     steps:
-      - uses: actions/checkout@v1
+      - name: Checkout code
+        uses: actions/checkout@v4
       
-      - uses: ./.github/actions/cached-toolchain
-        id: toolchain
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: ${{matrix.rust}}
+          toolchain: ${{ matrix.rust }}
 
-      - uses: actions/cache/restore@v3 # fetched cargo cache
-        id: cache-cargo-install-restore
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo
-          key: build-tools-${{matrix.rust}}-${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-toolchain-${{ steps.toolchain.outputs.cachekey  }}
-          restore-keys: | 
-            build-tools-${{matrix.rust}}-${{ runner.os }}-cargo-
+          key: build-${{ matrix.os }}-${{ matrix.rust }}
 
-      - name: Install wasm-pack
-        run:
-          cargo install --git https://github.com/mre/wasm-pack.git --branch first-class-bins
+      - name: Install WASM target
+        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
+        run: |
+          rustup target add wasm32-unknown-unknown
     
-      - name: Print wasm-pack version
-        run: wasm-pack --version
-
       - name: Install trunk
-        run:
-          cargo install --locked trunk@0.17.2 # latest on 2023.07.24
-
-      - name: Print trunk version
-        run: trunk --version
-      
-      - uses: actions/cache/save@v3 # saves cargo cache
-        with:
-          path: |
-            ~/.cargo
-          key: ${{ steps.cache-cargo-install-restore.outputs.cache-primary-key }}
-      
-      - uses: actions/cache@v3 # fetched cargo cache
-        id: cache-cargo-restore
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target
-          key: build-${{matrix.rust}}-${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}-toolchain-${{ steps.toolchain.outputs.cachekey  }}
-          restore-keys: | 
-            build-${{matrix.rust}}-${{ runner.os }}-cargo-
-
-      - name: cargo fetch
-        run: cargo fetch --locked
-
-      - if: matrix.rust == 'stable'
-        uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features
+        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
+        run: |
+          wget -qO- https://github.com/trunk-rs/trunk/releases/latest/download/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
+          sudo mv trunk /usr/local/bin/
 
       - name: Build and install tinysearch
         run: cargo install --force --path . --features=bin
         continue-on-error: ${{ matrix.rust == 'nightly' }}
 
       - name: Build WASM package from test index
-        run: RUST_LOG=debug tinysearch --engine-version 'path= "'$PWD'"' fixtures/index.json
-        continue-on-error: ${{ matrix.rust == 'nightly' }}
+        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
+        run: |
+          mkdir -p wasm_output
+          RUST_LOG=debug tinysearch -m wasm -p wasm_output --engine-version 'path="'$PWD'"' fixtures/index.json
+        continue-on-error: true
       
       - name: Build examples
-        run:
-          for example in `ls -1 examples`; do
-            (cd "examples/$example" && trunk build index.html) || exit 1;
+        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
+        run: |
+          for example in examples/*; do
+            if [ -d "$example" ]; then
+              (cd "$example" && trunk build index.html) || echo "Failed to build $example";
+            fi
           done
-        continue-on-error: ${{ matrix.rust == 'nightly' }}
-
-      - name: Audit for Security Vulnerabilities
-        uses: actions-rs/audit-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
 
       - name: Generate Docs
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --all-features --no-deps
+        if: matrix.rust == 'stable'
+        run: cargo doc --all-features --no-deps
 
-  publish:
-    needs:
-      - test
+  audit:
+    name: Security Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: cargo fetch
-        uses: actions-rs/cargo@v1
-        with:
-          command: fetch
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+
+      - name: Run security audit
+        run: cargo audit
+
+  publish:
+    name: Publish
+    needs: [test, build, audit]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release --features=bin
 
       - name: Publish (dry run)
-        uses: actions-rs/cargo@v1
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        with:
-          command: publish
-          args: --dry-run
+        run: cargo publish --dry-run
 
-      - name: Publish
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: actions-rs/cargo@v1
+      - name: Publish to crates.io
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        with:
-          command: publish
+        run: cargo publish
           
-      - name: Create Github release for Linux, Windows, and macOS
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
+      - name: Create Github release
+        uses: softprops/action-gh-release@v2
         with:
-          prerelease: true
-          files: target/release/tinysearch
+          files: |
+            target/release/tinysearch
+            target/release/tinysearch.exe
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

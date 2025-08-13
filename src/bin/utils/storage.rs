@@ -40,7 +40,7 @@ fn tokenize(words: &str, stopwords: &HashSet<String>) -> HashSet<String> {
 }
 
 // Read all posts and generate Bloomfilters from them.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub fn generate_filters(posts: HashMap<PostId, Option<String>>) -> Result<Filters, Error> {
     // Create a dictionary of {"post name": "lowercase word set"}. split_posts =
     // {name: set(re.split("\W+", contents.lower())) for name, contents in
@@ -59,32 +59,32 @@ pub fn generate_filters(posts: HashMap<PostId, Option<String>>) -> Result<Filter
 
     // At this point, we have a dictionary of posts and a normalized set of
     // words in each. We could do more things, like stemming, removing common
-    // words (a, the, etc), but we’re going for naive, so let’s just create the
+    // words (a, the, etc), but we're going for naive, so let's just create the
     // filters for now:
-    let mut filters = Vec::new();
-    for (post_id, body) in split_posts {
-        // Also add title to filter
-        let title: HashSet<String> = tokenize(&post_id.0, &stopwords);
-        let content: Vec<String> = if let Some(body) = body {
-            body.union(&title).cloned().collect()
-        } else {
-            title.into_iter().collect()
-        };
-        let filter = HashProxy::from(&content);
-        filters.push((post_id, filter));
-    }
+    let filters = split_posts
+        .into_iter()
+        .map(|(post_id, body)| {
+            // Also add title to filter
+            let title: HashSet<String> = tokenize(&post_id.0, &stopwords);
+            let content: Vec<String> = body.map_or_else(
+                || title.clone().into_iter().collect(),
+                |body| body.union(&title).cloned().collect(),
+            );
+            let filter = HashProxy::from(&content);
+            (post_id, filter)
+        })
+        .collect();
     trace!("Done");
     Ok(filters)
 }
 
 // prepares the files in the given directory to be consumed by the generator
 pub fn prepare_posts(posts: Posts) -> HashMap<PostId, Option<String>> {
-    let mut prepared: HashMap<PostId, Option<String>> = HashMap::new();
-    for post in posts {
-        debug!("Analyzing {}", post.url);
-        prepared.insert((post.title, post.url, post.meta), post.body);
-    }
-    prepared
+    posts
+        .into_iter()
+        .inspect(|post| debug!("Analyzing {}", post.url))
+        .map(|post| ((post.title, post.url, post.meta), post.body))
+        .collect()
 }
 
 #[cfg(test)]

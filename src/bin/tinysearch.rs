@@ -7,7 +7,7 @@ use utils::assets;
 use utils::index;
 use utils::storage;
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 pub use anyhow::{Error, Result};
 use argh::FromArgs;
 use std::path::PathBuf;
@@ -15,7 +15,7 @@ use std::process::{Command, Stdio};
 use std::str::FromStr;
 use std::{env, fs};
 use tempfile::TempDir;
-use toml_edit::{value, Document};
+use toml_edit::{DocumentMut, value};
 
 use index::Posts;
 use strum::{EnumString, IntoStaticStr};
@@ -26,9 +26,9 @@ fn ensure_exists(path: PathBuf) -> Result<PathBuf, Error> {
     }
     let path = path.canonicalize()?;
     if !path.exists() {
-        for path in fs::read_dir(&path)? {
-            println!("Name: {}", path.unwrap().path().display())
-        }
+        fs::read_dir(&path)?
+            .map(|entry| entry.unwrap().path())
+            .for_each(|path| println!("Name: {}", path.display()));
         bail!("Directory could not be created at {}", &path.display());
     }
     Ok(path)
@@ -73,7 +73,7 @@ enum OutputMode {
 }
 
 fn parse_engine_version(str: &str) -> Result<toml_edit::Table, String> {
-    let doc = str.parse::<Document>().map_err(|e| e.to_string())?;
+    let doc = str.parse::<DocumentMut>().map_err(|e| e.to_string())?;
     Ok(doc.as_table().clone())
 }
 
@@ -92,6 +92,10 @@ struct Opt {
     /// show version and exit
     #[argh(switch)]
     version: bool,
+
+    /// create production-ready output without demo files
+    #[argh(switch)]
+    release: bool,
 
     /// output mode
     #[argh(option, short = 'm', long = "mode", default = "OutputMode::Wasm")]
@@ -140,7 +144,7 @@ struct Opt {
         short = 'e',
         long = "engine-version",
         from_str_fn(parse_engine_version),
-        default = "format!(\"version=\\\"{}\\\"\", env!(\"CARGO_PKG_VERSION\")).parse::<toml_edit::Document>().unwrap().as_table().clone()"
+        default = "format!(\"version=\\\"{}\\\"\", env!(\"CARGO_PKG_VERSION\")).parse::<toml_edit::DocumentMut>().unwrap().as_table().clone()"
     )]
     engine_version: toml_edit::Table,
 
@@ -184,18 +188,18 @@ impl Stage for Search {
     }
 
     fn build(&self) -> Result<(), Error> {
-        use tinysearch::{search as base_search, Storage};
+        use tinysearch::{Storage, search as base_search};
         let bytes = fs::read(&self.storage_file).with_context(|| {
             format!("Failed to read input file: {}", self.storage_file.display())
         })?;
         let filters = Storage::from_bytes(&bytes)?.filters;
         let results = base_search(&filters, self.term.clone(), self.num_searches);
-        for result in results {
+        results.iter().for_each(|result| {
             println!(
                 "Title: {}, Url: {}, Meta: {:?}",
                 result.0, result.1, result.2
             );
-        }
+        });
         Ok(())
     }
 }
@@ -270,7 +274,7 @@ impl Stage for Crate {
             self.out_path.display()
         );
         let cargo_toml = self.out_path.join("Cargo.toml");
-        let mut cargo_toml_contents = assets::CRATE_CARGO_TOML.parse::<Document>()?;
+        let mut cargo_toml_contents = assets::CRATE_CARGO_TOML.parse::<DocumentMut>()?;
         cargo_toml_contents["package"]["name"] = value(self.crate_name.clone());
         cargo_toml_contents["dependencies"]["tinysearch"] =
             toml_edit::Item::Table(self.engine_version.clone());
@@ -301,6 +305,7 @@ struct Wasm {
     out_path: PathBuf,
     crate_path: DirOrTemp,
     optimize: bool,
+    release: bool,
 }
 
 impl Wasm {
@@ -326,43 +331,159 @@ impl Stage for Wasm {
             out_path: ensure_exists(opt.out_path.clone())?,
             crate_path,
             optimize: opt.optimize,
+            release: opt.release,
         })
     }
 
     fn build(self: &Wasm) -> Result<(), Error> {
         self.c.build().context("Failed generating crate")?;
-        println!("Compiling WASM module using wasm-pack");
+        println!("Compiling WASM module using vanilla cargo build");
         let crate_path = self.crate_path.path();
-        run_output(
-            Command::new("wasm-pack")
-                .arg("build")
-                .arg(&crate_path)
-                .arg("--target")
-                .arg("web")
-                .arg("--release")
-                .arg("--out-dir")
-                .arg(&self.out_path),
-        )?;
         let wasm_name = self.c.crate_name.replace('-', "_");
 
+        // Build with vanilla cargo
+        run_output(
+            Command::new("cargo")
+                .current_dir(&crate_path)
+                .arg("build")
+                .arg("--target")
+                .arg("wasm32-unknown-unknown")
+                .arg("--release"),
+        )?;
+
+        // Copy the WASM file to output directory
+        let wasm_file = format!("{}.wasm", &wasm_name);
+        let source_wasm = crate_path
+            .join("target/wasm32-unknown-unknown/release")
+            .join(&wasm_file);
+        let dest_wasm = self.out_path.join(&wasm_file);
+        fs::copy(&source_wasm, &dest_wasm).with_context(|| {
+            format!(
+                "Failed to copy {} to {}",
+                source_wasm.display(),
+                dest_wasm.display()
+            )
+        })?;
+
+        // Generate simple JS loader
+        let js_content = format!(
+            r#"
+class TinySearchWasm {{
+    constructor(wasmInstance) {{
+        this.wasm = wasmInstance;
+        this.memory = wasmInstance.exports.memory;
+        this.searchFn = wasmInstance.exports.search;
+        this.freeFn = wasmInstance.exports.free_search_result;
+    }}
+
+    // Convert JS string to WASM memory
+    stringToWasm(str) {{
+        const bytes = new TextEncoder().encode(str + '\0');
+        const ptr = this.wasm.exports.malloc ? this.wasm.exports.malloc(bytes.length) : this.allocString(bytes.length);
+        const mem = new Uint8Array(this.memory.buffer, ptr, bytes.length);
+        mem.set(bytes);
+        return ptr;
+    }}
+
+    // Read string from WASM memory
+    wasmToString(ptr) {{
+        if (ptr === 0) return null;
+        const mem = new Uint8Array(this.memory.buffer);
+        let end = ptr;
+        while (mem[end] !== 0) end++;
+        return new TextDecoder().decode(mem.subarray(ptr, end));
+    }}
+
+    // Simple string allocation fallback
+    allocString(len) {{
+        // This is a simple fallback - WASM linear memory grows as needed
+        const pages = Math.ceil(len / 65536);
+        this.memory.grow(pages);
+        return this.memory.buffer.byteLength - len;
+    }}
+
+    // Perform search
+    search(query, numResults = 5) {{
+        const queryPtr = this.stringToWasm(query);
+        const resultPtr = this.searchFn(queryPtr, numResults);
+        
+        if (resultPtr === 0) {{
+            return [];
+        }}
+
+        const jsonStr = this.wasmToString(resultPtr);
+        this.freeFn(resultPtr);
+        
+        try {{
+            return JSON.parse(jsonStr);
+        }} catch (e) {{
+            console.error('Failed to parse search results:', e);
+            return [];
+        }}
+    }}
+}}
+
+export async function init_tinysearch() {{
+    try {{
+        // Try streaming first (preferred)
+        const wasmModule = await WebAssembly.instantiateStreaming(fetch('./{wasm_file}'));
+        return new TinySearchWasm(wasmModule.instance);
+    }} catch (e) {{
+        console.warn('Streaming failed, falling back to fetch + instantiate:', e.message);
+        // Fallback for servers with wrong MIME type
+        const response = await fetch('./{wasm_file}');
+        const wasmBytes = await response.arrayBuffer();
+        const wasmModule = await WebAssembly.instantiate(wasmBytes);
+        return new TinySearchWasm(wasmModule.instance);
+    }}
+}}
+
+// Backward compatibility
+export {{ TinySearchWasm as TinySearch }};
+"#,
+            wasm_file = wasm_file
+        );
+
+        let js_path = self.out_path.join(format!("{}.js", &wasm_name));
+        if !self.release {
+            fs::write(&js_path, js_content)
+                .with_context(|| format!("Failed writing JS loader to {}", js_path.display()))?;
+        }
+
+        // Optional optimization
         if self.optimize {
-            let wasm_file = format!("{}_bg.wasm", &wasm_name);
-            run_output(
+            if run_output(
                 Command::new("wasm-opt")
                     .current_dir(&self.out_path)
                     .arg("-Oz")
                     .arg("-o")
                     .arg(&wasm_file)
                     .arg(&wasm_file),
-            )?;
+            )
+            .is_ok()
+            {
+                println!("Optimized WASM with wasm-opt");
+            } else {
+                println!("wasm-opt not available, skipping optimization");
+            }
         }
-        let html_path = self.out_path.join("demo.html");
-        fs::write(
-            &html_path,
-            assets::DEMO_HTML.replace("{WASM_NAME}", &wasm_name),
-        )
-        .with_context(|| format!("Failed writing demo.html to {}", &html_path.display()))?;
-        println!("All done! Open the output folder with a web server to try the demo.");
+
+        if !self.release {
+            let html_path = self.out_path.join("demo.html");
+            fs::write(
+                &html_path,
+                assets::DEMO_HTML.replace("{WASM_NAME}", &wasm_name),
+            )
+            .with_context(|| format!("Failed writing demo.html to {}", &html_path.display()))?;
+            println!("All done! WASM module at: {}", dest_wasm.display());
+            println!("JS loader at: {}", js_path.display());
+            println!("Demo at: {}", html_path.display());
+        } else {
+            println!("Created production-ready WASM module");
+            println!("See docs for usage instructions");
+            println!("Path: {}", dest_wasm.display());
+            println!("Size: {} bytes", dest_wasm.metadata()?.len());
+        }
         Ok(())
     }
 }

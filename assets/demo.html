@@ -1,72 +1,271 @@
+<!DOCTYPE html>
 <html>
-
 <head>
-  <meta content="text/html;charset=utf-8" http-equiv="Content-Type" />
+    <meta charset="utf-8">
+    <title>TinySearch WASM Demo</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background-color: #f8f9fa;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        
+        .search-box {
+            margin: 20px 0;
+        }
+        
+        input[type="text"] {
+            width: 300px;
+            padding: 10px;
+            border: 2px solid #e1e8ed;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-left: 10px;
+        }
+        
+        button:hover {
+            background: #2980b9;
+        }
+        
+        .results {
+            margin-top: 20px;
+        }
+        
+        .result-item {
+            padding: 15px;
+            border: 1px solid #e1e8ed;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+        }
+        
+        .result-title {
+            font-weight: bold;
+            color: #3498db;
+            text-decoration: none;
+            font-size: 16px;
+        }
+        
+        .result-title:hover {
+            text-decoration: underline;
+        }
+        
+        .no-results {
+            color: #7f8c8d;
+            font-style: italic;
+        }
+        
+        .status {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+        
+        .error {
+            color: #e74c3c;
+            background: #fdf2f2;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 10px;
+        }
+    </style>
 </head>
-
 <body>
-  <!-- Note the usage of `type=module` here as this is an ES6 module -->
-  <script type="module">
-    // Use ES module import syntax to import functionality from the module
-    // that we have compiled.
-    //
-    // Note that the `default` import is an initialization function which
-    // will "boot" the module and make it ready to use. Currently browsers
-    // don't support natively imported WebAssembly as an ES module, but
-    // eventually the manual initialization won't be required!
-    // import { search, default as init } from './{WASM_NAME}.js';
-    import { search, default as init } from './{WASM_NAME}.js';
-    window.search = search;
+    <div class="container">
+        <h1>TinySearch WASM Demo</h1>
+        <p>This demo shows TinySearch running in WebAssembly. Try searching for terms like "rust", "javascript", or "blog".</p>
+        
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="Enter your search query..." />
+            <button onclick="performSearch()">Search</button>
+        </div>
+        
+        <div id="status" class="status">Loading search engine...</div>
+        <div id="results" class="results"></div>
+    </div>
 
-    async function run() {
-      // First up we need to actually load the wasm file, so we use the
-      // default export to inform it where the wasm file is located on the
-      // server, and then we wait on the returned promise to wait for the
-      // wasm to be loaded.
-      //
-      // Note that instead of a string here you can also pass in an instance
-      // of `WebAssembly.Module` which allows you to compile your own module.
-      // Also note that the promise, when resolved, yields the wasm module's
-      // exports which is the same as importing the `*_bg` module in other
-      // modes
-      await init('./{WASM_NAME}_bg.wasm');
-    }
-
-    run();
-  </script>
-
-  <script>
-    // And afterwards we can use all the functionality defined in wasm.
-    function doSearch() {
-      let value = document.getElementById("demo").value;
-      console.log(`Search query: ${value}`);
-
-      const results = search(value, 5);
-
-      console.log(`Results: ${results}`);
-
-      let ul = document.getElementById("results");
-      ul.innerHTML = "";
-
-      for (i = 0; i < results.length; i++) {
-        var li = document.createElement("li");
-
-        let [title, url] = results[i];
-        let elemlink = document.createElement('a');
-        elemlink.innerHTML = title;
-        elemlink.setAttribute('href', url);
-        li.appendChild(elemlink);
-
-        ul.appendChild(li);
-      }
-    }
-  </script>
-
-  <h2>Search</h2>
-  <input type="text" id="demo" onkeyup="doSearch()">
-  <h2>Results</h2>
-  <ul id="results">
-  </ul>
+    <script>
+        let wasmModule = null;
+        let memory = null;
+        let searchFunction = null;
+        let freeFunction = null;
+        
+        async function initializeSearch() {
+            try {
+                const response = await fetch('./{WASM_NAME}.wasm');
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch WASM: ${response.status} ${response.statusText}`);
+                }
+                
+                const wasmBytes = await response.arrayBuffer();
+                const module = await WebAssembly.instantiate(wasmBytes);
+                
+                wasmModule = module.instance;
+                memory = wasmModule.exports.memory;
+                searchFunction = wasmModule.exports.search;
+                freeFunction = wasmModule.exports.free_search_result;
+                
+                if (!searchFunction || !freeFunction || !memory) {
+                    throw new Error('Required WASM exports not found');
+                }
+                
+                document.getElementById('status').textContent = 'Search engine ready! Try entering a query above.';
+                document.getElementById('searchInput').disabled = false;
+                document.getElementById('searchInput').focus();
+                
+            } catch (error) {
+                console.error('Failed to initialize search:', error);
+                document.getElementById('status').innerHTML = `<div class="error">Failed to initialize search: ${error.message}</div>`;
+            }
+        }
+        
+        function stringToWasmPtr(str) {
+            const bytes = new TextEncoder().encode(str + '\0');
+            const ptr = wasmModule.exports.__wbindgen_malloc(bytes.length);
+            if (!ptr) {
+                // Fallback: write to a known memory location
+                const memoryArray = new Uint8Array(memory.buffer);
+                const startOffset = 1024; // Use a safe offset
+                memoryArray.set(bytes, startOffset);
+                return startOffset;
+            }
+            new Uint8Array(memory.buffer, ptr, bytes.length).set(bytes);
+            return ptr;
+        }
+        
+        function wasmPtrToString(ptr) {
+            if (ptr === 0) return null;
+            
+            const memoryArray = new Uint8Array(memory.buffer);
+            let length = 0;
+            
+            // Find the null terminator
+            while (memoryArray[ptr + length] !== 0) {
+                length++;
+                if (length > 1000000) break; // Safety limit
+            }
+            
+            const bytes = memoryArray.slice(ptr, ptr + length);
+            return new TextDecoder().decode(bytes);
+        }
+        
+        function performSearch() {
+            const query = document.getElementById('searchInput').value.trim();
+            const resultsDiv = document.getElementById('results');
+            const statusDiv = document.getElementById('status');
+            
+            if (!wasmModule) {
+                statusDiv.innerHTML = '<div class="error">Search engine not initialized</div>';
+                return;
+            }
+            
+            if (!query) {
+                resultsDiv.innerHTML = '';
+                statusDiv.textContent = 'Enter a search query to see results.';
+                return;
+            }
+            
+            try {
+                const startTime = performance.now();
+                
+                // Allocate memory for query string
+                let queryPtr;
+                try {
+                    queryPtr = stringToWasmPtr(query);
+                } catch (e) {
+                    // Fallback: use a fixed memory location
+                    const queryBytes = new TextEncoder().encode(query + '\0');
+                    const memoryArray = new Uint8Array(memory.buffer);
+                    queryPtr = 1024; // Fixed offset
+                    memoryArray.set(queryBytes, queryPtr);
+                }
+                
+                // Call search function
+                const resultPtr = searchFunction(queryPtr, 10);
+                
+                // Free query memory if we allocated it
+                if (wasmModule.exports.__wbindgen_free && queryPtr > 1024) {
+                    wasmModule.exports.__wbindgen_free(queryPtr, query.length + 1);
+                }
+                
+                const endTime = performance.now();
+                const searchTime = (endTime - startTime).toFixed(3);
+                
+                if (resultPtr === 0) {
+                    resultsDiv.innerHTML = '<div class="no-results">No results found</div>';
+                    statusDiv.textContent = `No results found for "${query}" (${searchTime}ms)`;
+                    return;
+                }
+                
+                // Read result string
+                const resultString = wasmPtrToString(resultPtr);
+                
+                // Free result memory
+                freeFunction(resultPtr);
+                
+                if (!resultString) {
+                    resultsDiv.innerHTML = '<div class="no-results">No results found</div>';
+                    statusDiv.textContent = `No results found for "${query}" (${searchTime}ms)`;
+                    return;
+                }
+                
+                const results = JSON.parse(resultString);
+                
+                if (results.length === 0) {
+                    resultsDiv.innerHTML = '<div class="no-results">No results found</div>';
+                    statusDiv.textContent = `No results found for "${query}" (${searchTime}ms)`;
+                } else {
+                    const resultHTML = results.map(result => `
+                        <div class="result-item">
+                            <a href="${result.url}" class="result-title" target="_blank">${result.title}</a>
+                        </div>
+                    `).join('');
+                    
+                    resultsDiv.innerHTML = resultHTML;
+                    statusDiv.textContent = `Found ${results.length} result${results.length !== 1 ? 's' : ''} for "${query}" (${searchTime}ms)`;
+                }
+                
+            } catch (error) {
+                console.error('Search error:', error);
+                resultsDiv.innerHTML = '<div class="error">Search failed. Check console for details.</div>';
+                statusDiv.innerHTML = `<div class="error">Search failed: ${error.message}</div>`;
+            }
+        }
+        
+        // Enter key support
+        document.getElementById('searchInput').addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                performSearch();
+            }
+        });
+        
+        // Initialize search engine
+        document.getElementById('searchInput').disabled = true;
+        initializeSearch();
+    </script>
 </body>
-
 </html>
