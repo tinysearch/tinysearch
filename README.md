@@ -94,7 +94,7 @@ Try the interactive demo with a single command:
 make demo
 ```
 
-This will generate WASM files and start a local server. Open http://localhost:8000/demo.html to try it out.
+This will generate WASM files and start a local server. Open http://localhost:8000/demo/ to try it out.
 
 You can also take a look at the code examples for different static site generators [here](https://github.com/mre/tinysearch/tree/master/howto).
 
