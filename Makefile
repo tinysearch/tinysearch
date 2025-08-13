@@ -6,7 +6,7 @@ SHELL := /bin/bash
 
 # PHONY targets
 .PHONY: help clean build build-release build-docker install test test-unit test-integration
-.PHONY: lint fmt check audit run example deps update
+.PHONY: lint fmt check audit run example demo deps update
 .PHONY: ci-check ci-test ci-build ci-lint ci-fmt ci-audit
 
 help: ## Display this help message
@@ -66,6 +66,14 @@ run: ## Run tinysearch with sample input
 example: check-wasm-target ## Generate WASM output with sample data
 	mkdir -p wasm_output
 	cargo run --features=bin -- -m wasm -p wasm_output fixtures/index.json
+
+demo: example ## Run interactive demo (generates WASM and starts server)
+	@echo "🚀 Starting TinySearch demo..."
+	@echo "📂 WASM files generated in wasm_output/"
+	@echo "🌐 Opening demo at http://localhost:8000/demo.html"
+	@echo "   Press Ctrl+C to stop the server"
+	@echo ""
+	@python3 -m http.server 8000
 
 deps: ## Show dependency tree
 	cargo tree

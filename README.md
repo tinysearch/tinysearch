@@ -88,19 +88,13 @@ This creates a dependency-free WASM module using vanilla `cargo build` instead o
 
 ## Demo
 
-After generating the WASM files, try the interactive demo:
+Try the interactive demo with a single command:
 
 ```sh
-# Quick test with example data
-make example
-
-# Run demo
-cd demo
-python3 -m http.server 8000
-# Open http://localhost:8000/browser.html
+make demo
 ```
 
-See [demo/README.md](demo/README.md) for integration examples.
+This will generate WASM files and start a local server. Open http://localhost:8000/demo.html to try it out.
 
 You can also take a look at the code examples for different static site generators [here](https://github.com/mre/tinysearch/tree/master/howto).
 

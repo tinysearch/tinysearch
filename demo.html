@@ -125,7 +125,7 @@
         
         async function initializeSearch() {
             try {
-                const response = await fetch('../wasm_output/tinysearch_engine.wasm');
+                const response = await fetch('./wasm_output/tinysearch_engine.wasm');
                 if (!response.ok) {
                     throw new Error(`Failed to fetch WASM: ${response.status} ${response.statusText}`);
                 }
