@@ -30,6 +30,7 @@ fn test_cli_wasm_mode() {
 
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
 
+    let current_dir = std::env::current_dir().unwrap();
     let output = Command::new("cargo")
         .args([
             "run",
@@ -39,6 +40,11 @@ fn test_cli_wasm_mode() {
             "wasm",
             "-p",
             temp_dir.path().to_str().unwrap(),
+            "--engine-version",
+            &format!(
+                "path=\"{current_dir}\"",
+                current_dir = current_dir.display()
+            ),
             "fixtures/index.json",
         ])
         .output()

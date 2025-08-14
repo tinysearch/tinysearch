@@ -6,11 +6,11 @@ use std::path;
 use super::assets::STOP_WORDS;
 use super::index::Posts;
 use strip_markdown::strip_markdown;
-use tinysearch::{Filters, PostId, Storage};
+use tinysearch::{Filters, PostId, Storage, SearchSchema};
 use xorf::HashProxy;
 
-pub fn write(posts: Posts, path: &path::PathBuf) -> Result<(), Error> {
-    let filters = build(posts)?;
+pub fn write(posts: Posts, path: &path::PathBuf, schema: &SearchSchema) -> Result<(), Error> {
+    let filters = build(posts, schema)?;
     trace!("Storage::from");
     let storage = Storage::from(filters);
     trace!("Write");
@@ -19,8 +19,8 @@ pub fn write(posts: Posts, path: &path::PathBuf) -> Result<(), Error> {
     Ok(())
 }
 
-fn build(posts: Posts) -> Result<Filters, Error> {
-    let posts = prepare_posts(posts);
+fn build(posts: Posts, schema: &SearchSchema) -> Result<Filters, Error> {
+    let posts = prepare_posts(posts, schema);
     generate_filters(posts)
 }
 
@@ -79,11 +79,83 @@ pub fn generate_filters(posts: HashMap<PostId, Option<String>>) -> Result<Filter
 }
 
 // prepares the files in the given directory to be consumed by the generator
-pub fn prepare_posts(posts: Posts) -> HashMap<PostId, Option<String>> {
+pub fn prepare_posts(posts: Posts, schema: &SearchSchema) -> HashMap<PostId, Option<String>> {
     posts
         .into_iter()
         .inspect(|post| debug!("Analyzing {}", post.url))
-        .map(|post| ((post.title, post.url, post.meta), post.body))
+        .filter_map(|post| {
+            // Extract values from post fields based on schema
+            let mut indexed_content = String::new();
+            let mut metadata_content = String::new();
+            let url_value;
+            
+            // For the current JSON structure, we need to handle the mapping
+            // TODO: In the future, this should parse arbitrary JSON based on schema fields
+            
+            // Handle indexed fields
+            for field in &schema.indexed_fields {
+                match field.as_str() {
+                    "title" => {
+                        indexed_content.push_str(&post.title);
+                        indexed_content.push(' ');
+                    }
+                    "body" => {
+                        if let Some(body) = &post.body {
+                            indexed_content.push_str(body);
+                            indexed_content.push(' ');
+                        }
+                    }
+                    _ => {
+                        // For now, ignore unknown fields
+                        debug!("Skipping unknown indexed field: {}", field);
+                    }
+                }
+            }
+            
+            // Handle metadata fields  
+            for field in &schema.metadata_fields {
+                match field.as_str() {
+                    "title" => {
+                        metadata_content.push_str(&post.title);
+                        metadata_content.push(' ');
+                    }
+                    "body" => {
+                        if let Some(body) = &post.body {
+                            metadata_content.push_str(body);
+                            metadata_content.push(' ');
+                        }
+                    }
+                    "meta" => {
+                        if let Some(meta) = &post.meta {
+                            metadata_content.push_str(meta);
+                            metadata_content.push(' ');
+                        }
+                    }
+                    _ => {
+                        debug!("Skipping unknown metadata field: {}", field);
+                    }
+                }
+            }
+            
+            // Handle URL field
+            url_value = match schema.url_field.as_str() {
+                "url" => post.url.clone(),
+                "title" => post.title.clone(),
+                _ => {
+                    debug!("Unknown URL field: {}, using post.url", schema.url_field);
+                    post.url.clone()
+                }
+            };
+            
+            // Create PostId with title, URL, and metadata
+            let post_id = (
+                post.title, 
+                url_value, 
+                if metadata_content.trim().is_empty() { None } else { Some(metadata_content.trim().to_string()) }
+            );
+            
+            Some((post_id, if indexed_content.trim().is_empty() { None } else { Some(indexed_content.trim().to_string()) }))
+        })
         .collect()
 }
 
@@ -123,5 +195,31 @@ mod tests {
         assert!(filter.contains(&"maybe".to_owned()));
         assert!(filter.contains(&"kubernetes".to_owned()));
         assert!(filter.contains(&"excel".to_owned()));
+    }
+
+    #[test]
+    fn test_prepare_posts_with_schema() {
+        use super::super::index::Post;
+        
+        let posts = vec![
+            Post {
+                title: "Test Title".to_string(),
+                url: "https://example.com".to_string(),
+                meta: Some("test metadata".to_string()),
+                body: Some("Test body content".to_string()),
+            }
+        ];
+        
+        let schema = SearchSchema::default();
+        let prepared = prepare_posts(posts, &schema);
+        
+        assert_eq!(prepared.len(), 1);
+        let (post_id, body) = prepared.iter().next().unwrap();
+        
+        assert_eq!(post_id.0, "Test Title");
+        assert_eq!(post_id.1, "https://example.com");
+        assert!(body.is_some());
+        assert!(body.as_ref().unwrap().contains("Test Title"));
+        assert!(body.as_ref().unwrap().contains("Test body content"));
     }
 }

@@ -16,6 +16,7 @@ use std::str::FromStr;
 use std::{env, fs};
 use tempfile::TempDir;
 use toml_edit::{DocumentMut, value};
+use tinysearch::SearchSchema;
 
 use index::Posts;
 use strum::{EnumString, IntoStaticStr};
@@ -208,13 +209,20 @@ impl Stage for Search {
 struct Storage {
     posts_index: PathBuf,
     out_path: PathBuf,
+    schema: SearchSchema,
 }
 
 impl Stage for Storage {
     fn from_opt(opt: &Opt) -> Result<Self, Error> {
+        let posts_index = opt.input_file.clone().context("No input file")?;
+        let parent_dir = posts_index.parent().unwrap_or_else(|| std::path::Path::new("."));
+        let schema = SearchSchema::load_from_file(parent_dir)
+            .map_err(|e| anyhow::anyhow!("Failed to load schema: {}", e))?;
+        
         Ok(Self {
-            posts_index: opt.input_file.clone().context("No input file")?,
+            posts_index,
             out_path: ensure_exists(opt.out_path.clone())?,
+            schema,
         })
     }
 
@@ -231,7 +239,7 @@ impl Stage for Storage {
         )
         .with_context(|| format!("Failed to decode {}", self.posts_index.display()))?;
         trace!("Generating storage from posts: {:#?}", posts);
-        storage::write(posts, &storage_file)?;
+        storage::write(posts, &storage_file, &self.schema)?;
         println!("Storage ready in file {}", storage_file.display());
         Ok(())
     }
