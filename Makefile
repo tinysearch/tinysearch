@@ -5,7 +5,7 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 # PHONY targets
-.PHONY: help clean build build-release build-docker install test test-unit test-integration
+.PHONY: help clean build build-release build-docker docker install test test-unit test-integration
 .PHONY: lint fmt check audit run example demo deps update
 .PHONY: ci-check ci-test ci-build ci-lint ci-fmt ci-audit
 
@@ -17,7 +17,7 @@ help: ## Display this help message
 
 clean: ## Clean up build artifacts
 	cargo clean
-	rm -rf wasm_output target/criterion demo
+	rm -rf wasm_output target/criterion demo docker_output
 	rm -rf examples/*/dist
 	find . -name "*.wasm" -type f -delete
 	find . -name "*.js" -type f -path "*/pkg/*" -delete
@@ -30,6 +30,15 @@ build-release: ## Build the project in release mode
 
 build-docker: ## Build Docker image
 	docker build --progress=plain -t tinysearch/cli .
+
+docker: ## Build and run Docker container with sample data
+	@echo "🐳 Building Docker image..."
+	@docker build -t tinysearch/cli .
+	@echo "🚀 Running Docker container with sample data..."
+	@mkdir -p docker_output
+	@docker run --rm -v $(PWD)/docker_output:/app/output -v $(PWD)/fixtures:/app/fixtures tinysearch/cli -m wasm -p /app/output /app/fixtures/index.json
+	@echo "📂 Output files created in docker_output/"
+	@ls -la docker_output/
 
 install: ## Install tinysearch locally
 	cargo install --force --path . --features=bin
