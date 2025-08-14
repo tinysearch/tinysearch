@@ -4,7 +4,7 @@ use std::fs;
 use std::path;
 
 use super::assets::STOP_WORDS;
-use super::index::{Posts, FlexiblePosts};
+use super::index::Posts;
 use strip_markdown::strip_markdown;
 use tinysearch::{Filters, PostId, Storage, SearchSchema};
 use xorf::HashProxy;
@@ -19,23 +19,8 @@ pub fn write(posts: Posts, path: &path::PathBuf, schema: &SearchSchema) -> Resul
     Ok(())
 }
 
-pub fn write_flexible(posts: FlexiblePosts, path: &path::PathBuf, schema: &SearchSchema) -> Result<(), Error> {
-    let filters = build_flexible(posts, schema)?;
-    trace!("Storage::from");
-    let storage = Storage::from(filters);
-    trace!("Write");
-    fs::write(path, storage.to_bytes()?)?;
-    trace!("ok");
-    Ok(())
-}
-
 fn build(posts: Posts, schema: &SearchSchema) -> Result<Filters, Error> {
     let posts = prepare_posts(posts, schema);
-    generate_filters(posts)
-}
-
-fn build_flexible(posts: FlexiblePosts, schema: &SearchSchema) -> Result<Filters, Error> {
-    let posts = prepare_posts_flexible(posts, schema);
     generate_filters(posts)
 }
 
@@ -93,108 +78,8 @@ pub fn generate_filters(posts: HashMap<PostId, Option<String>>) -> Result<Filter
     Ok(filters)
 }
 
-// prepares the files in the given directory to be consumed by the generator
+// prepares posts with arbitrary field mappings based on schema
 pub fn prepare_posts(posts: Posts, schema: &SearchSchema) -> HashMap<PostId, Option<String>> {
-    posts
-        .into_iter()
-        .inspect(|post| debug!("Analyzing {}", post.url))
-        .filter_map(|post| {
-            // Extract values from post fields based on schema
-            let mut indexed_content = String::new();
-            let mut metadata_content = String::new();
-            let url_value;
-            
-            // For the current JSON structure, we need to handle the mapping
-            // TODO: In the future, this should parse arbitrary JSON based on schema fields
-            
-            // Handle indexed fields
-            for field in &schema.indexed_fields {
-                match field.as_str() {
-                    "title" => {
-                        indexed_content.push_str(&post.title);
-                        indexed_content.push(' ');
-                    }
-                    "body" => {
-                        if let Some(body) = &post.body {
-                            indexed_content.push_str(body);
-                            indexed_content.push(' ');
-                        }
-                    }
-                    _ => {
-                        // For now, ignore unknown fields
-                        debug!("Skipping unknown indexed field: {}", field);
-                    }
-                }
-            }
-            
-            // Handle metadata fields  
-            for field in &schema.metadata_fields {
-                match field.as_str() {
-                    "title" => {
-                        metadata_content.push_str(&post.title);
-                        metadata_content.push(' ');
-                    }
-                    "body" => {
-                        if let Some(body) = &post.body {
-                            metadata_content.push_str(body);
-                            metadata_content.push(' ');
-                        }
-                    }
-                    "meta" => {
-                        if let Some(meta) = &post.meta {
-                            metadata_content.push_str(meta);
-                            metadata_content.push(' ');
-                        }
-                    }
-                    _ => {
-                        debug!("Skipping unknown metadata field: {}", field);
-                    }
-                }
-            }
-            
-            // Handle URL field
-            url_value = match schema.url_field.as_str() {
-                "url" => post.url.clone(),
-                "title" => post.title.clone(),
-                _ => {
-                    debug!("Unknown URL field: {}, using post.url", schema.url_field);
-                    post.url.clone()
-                }
-            };
-            
-            // Create PostId with title, URL, and metadata
-            let post_id = (
-                post.title, 
-                url_value, 
-                if metadata_content.trim().is_empty() { None } else { Some(metadata_content.trim().to_string()) }
-            );
-            
-            Some((post_id, if indexed_content.trim().is_empty() { None } else { Some(indexed_content.trim().to_string()) }))
-        })
-        .collect()
-}
-
-// Helper function to extract string value from JSON value
-fn extract_string_value(value: &serde_json::Value) -> String {
-    match value {
-        serde_json::Value::String(s) => s.clone(),
-        serde_json::Value::Number(n) => n.to_string(),
-        serde_json::Value::Bool(b) => b.to_string(),
-        serde_json::Value::Array(arr) => {
-            arr.iter()
-                .filter_map(|v| match v {
-                    serde_json::Value::String(s) => Some(s.as_str()),
-                    _ => None,
-                })
-                .collect::<Vec<_>>()
-                .join(" ")
-        }
-        _ => String::new(),
-    }
-}
-
-// prepares flexible posts with arbitrary field mappings
-pub fn prepare_posts_flexible(posts: FlexiblePosts, schema: &SearchSchema) -> HashMap<PostId, Option<String>> {
     posts
         .into_iter()
         .inspect(|post| {
@@ -263,6 +148,26 @@ pub fn prepare_posts_flexible(posts: FlexiblePosts, schema: &SearchSchema) -> Ha
         .collect()
 }
 
+// Helper function to extract string value from JSON value
+fn extract_string_value(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(s) => s.clone(),
+        serde_json::Value::Number(n) => n.to_string(),
+        serde_json::Value::Bool(b) => b.to_string(),
+        serde_json::Value::Array(arr) => {
+            arr.iter()
+                .filter_map(|v| match v {
+                    serde_json::Value::String(s) => Some(s.as_str()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .join(" ")
+        }
+        _ => String::new(),
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use xorf::Filter;
@@ -304,15 +209,14 @@ mod tests {
     #[test]
     fn test_prepare_posts_with_schema() {
         use super::super::index::Post;
+        use std::collections::HashMap;
         
-        let posts = vec![
-            Post {
-                title: "Test Title".to_string(),
-                url: "https://example.com".to_string(),
-                meta: Some("test metadata".to_string()),
-                body: Some("Test body content".to_string()),
-            }
-        ];
+        let mut post_fields = HashMap::new();
+        post_fields.insert("title".to_string(), serde_json::Value::String("Test Title".to_string()));
+        post_fields.insert("url".to_string(), serde_json::Value::String("https://example.com".to_string()));
+        post_fields.insert("body".to_string(), serde_json::Value::String("Test body content".to_string()));
+        
+        let posts = vec![Post { fields: post_fields }];
         
         let schema = SearchSchema::default();
         let prepared = prepare_posts(posts, &schema);
@@ -328,8 +232,8 @@ mod tests {
     }
 
     #[test]
-    fn test_prepare_posts_flexible() {
-        use super::super::index::FlexiblePost;
+    fn test_prepare_posts_custom_fields() {
+        use super::super::index::Post;
         use std::collections::HashMap;
         
         let mut post_fields = HashMap::new();
@@ -339,7 +243,7 @@ mod tests {
         post_fields.insert("price".to_string(), serde_json::Value::String("$1999.99".to_string()));
         post_fields.insert("brand".to_string(), serde_json::Value::String("TechCorp".to_string()));
         
-        let posts = vec![FlexiblePost { fields: post_fields }];
+        let posts = vec![Post { fields: post_fields }];
         
         let schema = SearchSchema {
             indexed_fields: vec!["product_name".to_string(), "description".to_string()],
@@ -347,7 +251,7 @@ mod tests {
             url_field: "product_url".to_string(),
         };
         
-        let prepared = prepare_posts_flexible(posts, &schema);
+        let prepared = prepare_posts(posts, &schema);
         
         assert_eq!(prepared.len(), 1);
         let (post_id, indexed_content) = prepared.iter().next().unwrap();

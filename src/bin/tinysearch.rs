@@ -237,25 +237,10 @@ impl Stage for Storage {
         let raw_content = fs::read_to_string(&self.posts_index)
             .with_context(|| format!("Failed to read file {}", self.posts_index.display()))?;
         
-        // Check if schema requires fields beyond the legacy format
-        let needs_flexible = self.schema.indexed_fields.iter()
-            .chain(self.schema.metadata_fields.iter())
-            .chain(std::iter::once(&self.schema.url_field))
-            .any(|field| !["title", "body", "url", "meta"].contains(&field.as_str()));
-        
-        if needs_flexible {
-            trace!("Using flexible post format due to schema requirements");
-            let posts: index::FlexiblePosts = index::read_flexible(raw_content)
-                .with_context(|| format!("Failed to decode flexible format {}", self.posts_index.display()))?;
-            trace!("Generating storage from flexible posts: {:#?}", posts);
-            storage::write_flexible(posts, &storage_file, &self.schema)?;
-        } else {
-            trace!("Using legacy post format");
-            let posts: Posts = index::read(raw_content)
-                .with_context(|| format!("Failed to decode legacy format {}", self.posts_index.display()))?;
-            trace!("Generating storage from posts: {:#?}", posts);
-            storage::write(posts, &storage_file, &self.schema)?;
-        }
+        let posts: Posts = index::read(raw_content)
+            .with_context(|| format!("Failed to decode {}", self.posts_index.display()))?;
+        trace!("Generating storage from posts: {:#?}", posts);
+        storage::write(posts, &storage_file, &self.schema)?;
         
         println!("Storage ready in file {}", storage_file.display());
         Ok(())
