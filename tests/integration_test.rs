@@ -119,7 +119,7 @@ fn test_cli_storage_mode() {
 #[test]
 fn test_tinysearch_toml_configuration() {
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
-    
+
     // Create a custom tinysearch.toml
     let toml_content = r#"
 [schema]
@@ -129,7 +129,7 @@ url_field = "permalink"
 "#;
     std::fs::write(temp_dir.path().join("tinysearch.toml"), toml_content)
         .expect("Failed to write tinysearch.toml");
-    
+
     // Create a custom JSON file with the schema fields
     let json_content = r#"
 [
@@ -154,8 +154,7 @@ url_field = "permalink"
 ]
 "#;
     let json_path = temp_dir.path().join("custom_index.json");
-    std::fs::write(&json_path, json_content)
-        .expect("Failed to write custom JSON file");
+    std::fs::write(&json_path, json_content).expect("Failed to write custom JSON file");
 
     let output = Command::new("cargo")
         .args([
@@ -181,8 +180,11 @@ url_field = "permalink"
 
     // Check that storage file was created
     let storage_path = temp_dir.path().join("storage");
-    assert!(storage_path.exists(), "Storage file should be created with custom schema");
-    
+    assert!(
+        storage_path.exists(),
+        "Storage file should be created with custom schema"
+    );
+
     // Test search functionality with the custom schema
     let search_output = Command::new("cargo")
         .args([
@@ -190,7 +192,7 @@ url_field = "permalink"
             "--features=bin",
             "--",
             "-m",
-            "search", 
+            "search",
             "-S",
             "rust",
             "-N",
@@ -200,17 +202,26 @@ url_field = "permalink"
         .output()
         .expect("Failed to execute search command");
 
-    assert!(search_output.status.success(), "Search should work with custom schema");
-    
+    assert!(
+        search_output.status.success(),
+        "Search should work with custom schema"
+    );
+
     let search_stdout = String::from_utf8_lossy(&search_output.stdout);
-    assert!(search_stdout.contains("Custom Post Title"), "Should find the custom post");
-    assert!(search_stdout.contains("https://example.com/custom"), "Should contain the custom URL from permalink field");
+    assert!(
+        search_stdout.contains("Custom Post Title"),
+        "Should find the custom post"
+    );
+    assert!(
+        search_stdout.contains("https://example.com/custom"),
+        "Should contain the custom URL from permalink field"
+    );
 }
 
-#[test]  
+#[test]
 fn test_flexible_json_fields() {
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
-    
+
     // Create a tinysearch.toml with non-standard fields
     let toml_content = r#"
 [schema]
@@ -220,7 +231,7 @@ url_field = "product_url"
 "#;
     std::fs::write(temp_dir.path().join("tinysearch.toml"), toml_content)
         .expect("Failed to write tinysearch.toml");
-    
+
     // Create JSON with e-commerce-like fields
     let json_content = r#"
 [
@@ -243,8 +254,7 @@ url_field = "product_url"
 ]
 "#;
     let json_path = temp_dir.path().join("products.json");
-    std::fs::write(&json_path, json_content)
-        .expect("Failed to write products JSON file");
+    std::fs::write(&json_path, json_content).expect("Failed to write products JSON file");
 
     let output = Command::new("cargo")
         .args([
@@ -253,7 +263,7 @@ url_field = "product_url"
             "--",
             "-m",
             "storage",
-            "-p", 
+            "-p",
             temp_dir.path().to_str().unwrap(),
             json_path.to_str().unwrap(),
         ])
@@ -270,17 +280,20 @@ url_field = "product_url"
 
     // Verify storage was created
     let storage_path = temp_dir.path().join("storage");
-    assert!(storage_path.exists(), "Storage file should be created with flexible fields");
-    
+    assert!(
+        storage_path.exists(),
+        "Storage file should be created with flexible fields"
+    );
+
     // Test search works with the custom product fields
     let search_output = Command::new("cargo")
         .args([
-            "run", 
+            "run",
             "--features=bin",
             "--",
             "-m",
             "search",
-            "-S", 
+            "-S",
             "wireless",
             "-N",
             "1",
@@ -289,9 +302,18 @@ url_field = "product_url"
         .output()
         .expect("Failed to execute search command");
 
-    assert!(search_output.status.success(), "Search should work with flexible product fields");
-    
+    assert!(
+        search_output.status.success(),
+        "Search should work with flexible product fields"
+    );
+
     let search_stdout = String::from_utf8_lossy(&search_output.stdout);
-    assert!(search_stdout.contains("Wireless Headphones"), "Should find the wireless headphones product");
-    assert!(search_stdout.contains("https://store.example.com/headphones"), "Should contain the product URL");
+    assert!(
+        search_stdout.contains("Wireless Headphones"),
+        "Should find the wireless headphones product"
+    );
+    assert!(
+        search_stdout.contains("https://store.example.com/headphones"),
+        "Should contain the product URL"
+    );
 }
