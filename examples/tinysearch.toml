@@ -1,0 +1,16 @@
+# tinysearch.toml - Configuration file for customizing search schema
+# Place this file in the same directory as your index.json file
+
+[schema]
+# Fields that should be indexed for full-text search
+# These fields will be tokenized and searchable
+indexed_fields = ["title", "body", "description", "tags"]
+
+# Fields that should be stored as metadata but not indexed
+# These fields will be returned in search results but won't be searchable
+# Note: The url_field is automatically included as metadata
+metadata_fields = ["author", "date", "category", "image_url"]
+
+# Field that contains the URL/link for each document
+# This field is always included in results
+url_field = "url"
