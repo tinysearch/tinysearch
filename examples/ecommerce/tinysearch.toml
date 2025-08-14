@@ -1,0 +1,11 @@
+[schema]
+# Fields that will be indexed for full-text search
+# Users can search by product name, description, category, and tags
+indexed_fields = ["product_name", "description", "category", "tags"]
+
+# Fields that will be stored as metadata but not indexed
+# These are displayed in results but not searchable
+metadata_fields = ["price", "image_url", "brand", "availability", "rating", "reviews_count"]
+
+# Field that contains the URL for each product
+url_field = "product_url"
