@@ -1,6 +1,6 @@
 pub static CRATE_CARGO_TOML: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/assets/crate/Cargo_orig.toml"
+    "/assets/crate/Cargo.toml.template"
 ));
 pub static CRATE_LIB_RS: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
