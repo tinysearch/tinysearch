@@ -1,52 +1,110 @@
-# Building the search index with Zola
+# Building a Search Index for tinysearch with Zola
 
-1. Create a template, which iterates over all pages and creates our JSON structure.
+This guide shows how to create a JSON search index for tinysearch using Zola's template engine (Tera). The process involves creating templates that extract content from all your pages and format it as JSON for tinysearch to process.
 
-`macros/create_data.html`:
+## Overview
 
-```liquid
-{%- macro from_section(section) -%}
-{%- set section = get_section(path=section) -%}
+We'll create:
+1. A template that outputs JSON 
+2. A content file that generates the search index
+
+## Step 1: Create the Search Index Template
+
+Create `templates/tinysearch_index.html`:
+
+```tera
+{% set section = get_section(path="_index.md") %}
+[
 {%- for post in section.pages -%}
-{%- if not post.draft -%}
+{% if not post.draft %}
 {
 "title": {{ post.title | striptags | json_encode | safe }},
 "url": {{ post.permalink | json_encode | safe }},
-"body": {{ post.content | striptags | json_encode | safe }}
+"body": "{{ post.content | striptags | replace(from="{", to=" ") | replace(from="}", to=" ") | replace(from='"', to=" ") | replace(from="'", to="") | replace(from="\", to="")  | escape }}"
+}{% if not loop.last %},{% endif %}
+{% endif %}
+{%- endfor -%}
+]
+```
+
+**What this template does:**
+- Gets the root section (`_index.md`) which contains all site pages
+- Iterates through all pages in the site
+- Skips draft pages 
+- Extracts the title, URL, and content for each page
+- Uses special filtering for the body content to handle JSON escaping
+- Outputs properly formatted JSON array
+
+## Step 2: Create the Search Index Page
+
+Create `content/tinysearch.md`:
+
+```toml
++++
+title = "Search Index"
+path = "tinysearch.json"
+template = "tinysearch_index.html"
+date = 2025-01-01
++++
+```
+
+**Important notes:**
+- The `path` parameter determines the output URL (`/tinysearch.json`)
+- The `template` parameter specifies which template to use
+- The file extension in `path` doesn't affect the actual content type
+
+## Step 3: Build and Process
+
+1. **Build your Zola site:**
+   ```bash
+   zola build
+   ```
+
+2. **Find the generated JSON:**
+   The search index will be at `public/tinysearch.json/index.html`
+
+3. **Run tinysearch:**
+   ```bash
+   tinysearch --optimize --path static public/tinysearch.json/index.html
+   ```
+
+## Customization Options
+
+### Including Specific Sections Only
+
+To limit indexing to specific sections, modify the macro call:
+
+```tera
+[{{ tinysearch::extract_content(section="blog/_index.md") }}]
+```
+
+### Adding Metadata
+
+You can extend the macro to include additional metadata:
+
+```tera
+{
+  "title": {{ page.title | striptags | json_encode | safe }},
+  "url": {{ page.permalink | json_encode | safe }},
+  "body": {{ page.content | striptags | json_encode | safe }},
+  "date": {{ page.date | json_encode | safe }},
+  "tags": {{ page.taxonomies.tags | json_encode | safe }}
 }
-{%- if not loop.last -%},{%- endif %}
-{%- endif -%}
-{%- endfor -%}
-{%- if section.subsections -%}
-,
-{%- for subsection in section.subsections -%}
-{{ self::from_section(section=subsection) }}
-{%- endfor -%}
-{%- endif -%}
-{%- endmacro from_section -%}
 ```
 
-`templates/json.html`:
+## Troubleshooting
 
-```liquid
-{%- import "macros/create_data.html" as create_data -%}
-[{{ create_data::from_section(section="_index.md") }}]
-```
+### Empty Output
+- Check that your sections contain non-draft pages
+- Verify the section path in the macro call matches your content structure
 
-2. Create a static page using the template.
+### JSON Syntax Errors
+- Ensure proper comma placement between items
+- Use `json_encode` filter for all dynamic content
+- Test the generated JSON with a validator
 
-`content/static/json.md`:
+### Build Errors
+- Make sure the `tinysearch_macros.html` file is in the `templates/` directory
+- Check that all template syntax is correct (Tera uses `{%` and `{{` syntax)
 
-```
-+++
-path = "json"
-template = "json.html"
-+++
-```
-
-After running `zola build`, the output JSON file should be in `public/json/index.html`.
-You can then call tinysearch on the index to create your WASM:
-
-```
-tinysearch --optimize --path static public/json/index.html
-```
+This setup will create a comprehensive search index that tinysearch can process into an efficient WebAssembly search module for your Zola site.
