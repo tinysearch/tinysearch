@@ -1,18 +1,16 @@
 [package]
 name = "tinysearch"
-authors = ["Matthias Endler <matthias-endler@gmx.net>"]
 version = "0.9.0"
+authors = ["Matthias Endler <matthias-endler@gmx.net>"]
 edition = "2024"
 rust-version = "1.85"
 resolver = "2"
 description = "A tiny search engine for static websites"
+readme = "README.md"
 license = "Apache-2.0/MIT"
-documentation = "https://github.com/mre/tinysearch/blob/master/README.md"
 homepage = "https://github.com/mre/tinysearch"
 repository = "https://github.com/mre/tinysearch"
-exclude = ["pkg/**/*"]
-
-readme = "README.md"
+documentation = "https://github.com/mre/tinysearch/blob/master/README.md"
 include = ["src", "assets", "README.md"]
 
 [lib]
