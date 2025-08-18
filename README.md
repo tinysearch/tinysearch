@@ -99,7 +99,7 @@ make demo
 
 This will generate WASM files and start a local server. Open http://localhost:8000/demo/ to try it out.
 
-You can also take a look at the code examples for different static site generators [here](https://github.com/mre/tinysearch/tree/master/howto).
+You can also take a look at the code examples for different static site generators [here](https://github.com/mre/tinysearch/tree/master/examples).
 
 ## Advanced Usage
 

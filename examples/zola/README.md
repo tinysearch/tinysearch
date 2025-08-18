@@ -49,9 +49,10 @@ date = 2025-01-01
 ```
 
 **Important notes:**
-- The `path` parameter determines the output URL (`/tinysearch.json`)
+- The `path` parameter determines the output URL (`tinysearch.json`)
 - The `template` parameter specifies which template to use
-- The file extension in `path` doesn't affect the actual content type
+- The `date` field is required to avoid build warnings
+- **About the weird path**: Zola will create `public/tinysearch.json/index.html` instead of `public/tinysearch.json` due to how it handles URLs. This is normal Zola behavior - just ignore the strange nested structure.
 
 ## Step 3: Build and Process
 
@@ -61,7 +62,7 @@ date = 2025-01-01
    ```
 
 2. **Find the generated JSON:**
-   The search index will be at `public/tinysearch.json/index.html`
+   The search index will be at `public/tinysearch.json/index.html` (yes, that's a weird path, but it's how Zola works)
 
 3. **Run tinysearch:**
    ```bash
@@ -104,7 +105,6 @@ You can extend the macro to include additional metadata:
 - Test the generated JSON with a validator
 
 ### Build Errors
-- Make sure the `tinysearch_macros.html` file is in the `templates/` directory
 - Check that all template syntax is correct (Tera uses `{%` and `{{` syntax)
 
 This setup will create a comprehensive search index that tinysearch can process into an efficient WebAssembly search module for your Zola site.
