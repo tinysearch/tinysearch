@@ -15,6 +15,7 @@ use std::process::{Command, Stdio};
 use std::str::FromStr;
 use std::{env, fs};
 use tempfile::TempDir;
+use tinysearch::SearchSchema;
 use toml_edit::{DocumentMut, value};
 
 use index::Posts;
@@ -208,13 +209,22 @@ impl Stage for Search {
 struct Storage {
     posts_index: PathBuf,
     out_path: PathBuf,
+    schema: SearchSchema,
 }
 
 impl Stage for Storage {
     fn from_opt(opt: &Opt) -> Result<Self, Error> {
+        let posts_index = opt.input_file.clone().context("No input file")?;
+        let parent_dir = posts_index
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("."));
+        let schema = SearchSchema::load_from_file(parent_dir)
+            .map_err(|e| anyhow::anyhow!("Failed to load schema: {}", e))?;
+
         Ok(Self {
-            posts_index: opt.input_file.clone().context("No input file")?,
+            posts_index,
             out_path: ensure_exists(opt.out_path.clone())?,
+            schema,
         })
     }
 
@@ -225,13 +235,15 @@ impl Stage for Storage {
             self.posts_index.display(),
             storage_file.display()
         );
-        let posts: Posts = index::read(
-            fs::read_to_string(&self.posts_index)
-                .with_context(|| format!("Failed to read file {}", self.posts_index.display()))?,
-        )
-        .with_context(|| format!("Failed to decode {}", self.posts_index.display()))?;
+
+        let raw_content = fs::read_to_string(&self.posts_index)
+            .with_context(|| format!("Failed to read file {}", self.posts_index.display()))?;
+
+        let posts: Posts = index::read(raw_content)
+            .with_context(|| format!("Failed to decode {}", self.posts_index.display()))?;
         trace!("Generating storage from posts: {:#?}", posts);
-        storage::write(posts, &storage_file)?;
+        storage::write(posts, &storage_file, &self.schema)?;
+
         println!("Storage ready in file {}", storage_file.display());
         Ok(())
     }

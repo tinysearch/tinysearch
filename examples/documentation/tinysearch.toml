@@ -1,0 +1,11 @@
+[schema]
+# Fields that will be indexed for full-text search
+# Users can search across titles, content, sections, and keywords
+indexed_fields = ["title", "content", "section", "keywords"]
+
+# Fields that will be stored as metadata but not indexed
+# These provide context and navigation information
+metadata_fields = ["version", "last_updated", "contributor", "difficulty", "type"]
+
+# Field that contains the URL for each documentation page
+url_field = "doc_url"

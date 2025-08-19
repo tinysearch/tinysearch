@@ -74,6 +74,24 @@ Please take a look at the [example file](fixtures/index.json).
 ℹ️ The `body` field in the JSON document is optional and can be skipped to just
 index post titles.
 
+### Configuration
+
+You can customize which fields are indexed and which are stored as metadata using a `tinysearch.toml` configuration file. Place this file in the same directory as your JSON index file.
+
+```toml
+[schema]
+# Fields that will be indexed for full-text search
+indexed_fields = ["title", "body", "description"]
+
+# Fields that will be stored as metadata but not indexed
+metadata_fields = ["author", "date", "category", "image_url"]
+
+# Field that contains the URL for each document
+url_field = "url"
+```
+
+If no configuration file is found, tinysearch will use the default schema (indexing `title` and `body` fields with `url` as the URL field).
+
 Once you created the index, you can generate a WebAssembly search engine:
 
 ```sh
@@ -100,6 +118,58 @@ make demo
 This will generate WASM files and start a local server. Open http://localhost:8000/demo/ to try it out.
 
 You can also take a look at the code examples for different static site generators [here](https://github.com/mre/tinysearch/tree/master/examples).
+
+### Configuration Examples
+
+#### E-commerce Site with Product Metadata
+
+For an e-commerce site where you want to search product titles and descriptions but also store metadata like prices and image URLs:
+
+```toml
+[schema]
+indexed_fields = ["title", "description", "category", "tags"]
+metadata_fields = ["price", "image_url", "brand", "availability"]
+url_field = "product_url"
+```
+
+JSON structure:
+```json
+[
+    {
+        "title": "Wireless Headphones",
+        "description": "High-quality wireless headphones with noise cancellation",
+        "category": "Electronics",
+        "tags": "audio headphones wireless bluetooth",
+        "product_url": "https://store.example.com/headphones-123",
+        "price": "$199.99",
+        "image_url": "https://store.example.com/images/headphones.jpg",
+        "brand": "TechAudio",
+        "availability": "In Stock"
+    }
+]
+```
+
+#### Blog with Author and Date Information
+
+For a blog where you want to search titles and content but also store author and publication metadata:
+
+```toml
+[schema]
+indexed_fields = ["title", "body", "excerpt"]
+metadata_fields = ["author", "publish_date", "tags", "featured_image"]
+url_field = "permalink"
+```
+
+#### Documentation Site
+
+For a documentation site where you want extensive search across multiple content types:
+
+```toml
+[schema]
+indexed_fields = ["title", "content", "section", "keywords"]
+metadata_fields = ["version", "last_updated", "contributor"]
+url_field = "doc_url"
+```
 
 ## Advanced Usage
 

@@ -1,0 +1,35 @@
+[
+    {
+        "title": "Getting Started with Rust",
+        "body": "Rust is a systems programming language that runs blazingly fast, prevents segfaults, and guarantees thread safety.",
+        "description": "A comprehensive introduction to Rust programming",
+        "tags": "rust programming tutorial beginner",
+        "url": "https://example.com/rust-intro",
+        "author": "Jane Developer",
+        "date": "2024-01-15",
+        "category": "Programming",
+        "image_url": "https://example.com/images/rust.jpg"
+    },
+    {
+        "title": "Web Development with JavaScript",
+        "body": "JavaScript is the language of the web. Learn how to build interactive websites and web applications.",
+        "description": "Modern JavaScript development techniques and frameworks",
+        "tags": "javascript web development frontend",
+        "url": "https://example.com/js-guide",
+        "author": "John WebDev",
+        "date": "2024-01-20",
+        "category": "Web Development",
+        "image_url": "https://example.com/images/js.jpg"
+    },
+    {
+        "title": "Database Design Principles",
+        "body": "Good database design is crucial for application performance and maintainability.",
+        "description": "Essential principles for designing efficient databases",
+        "tags": "database design sql principles",
+        "url": "https://example.com/db-design",
+        "author": "Alice DataEngineer",
+        "date": "2024-01-25",
+        "category": "Database",
+        "image_url": "https://example.com/images/database.jpg"
+    }
+]

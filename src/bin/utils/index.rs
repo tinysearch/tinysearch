@@ -1,11 +1,10 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Post {
-    pub title: String,
-    pub url: String,
-    pub meta: Option<String>,
-    pub body: Option<String>,
+    #[serde(flatten)]
+    pub fields: HashMap<String, serde_json::Value>,
 }
 
 pub type Posts = Vec<Post>;
