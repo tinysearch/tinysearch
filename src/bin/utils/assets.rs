@@ -12,3 +12,8 @@ pub static DEMO_HTML: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/
 
 pub static STOP_WORDS: &str =
     include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/stopwords"));
+
+pub static JS_LOADER: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/assets/tinysearch_loader.js"
+));
