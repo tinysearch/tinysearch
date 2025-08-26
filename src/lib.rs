@@ -2,6 +2,42 @@
 //!
 //! This crate provides a fast, memory-efficient search engine that can be compiled
 //! to WebAssembly for client-side search functionality on static websites.
+//!
+//! # Library Usage
+//!
+//! This crate can be used both as a command-line tool and as a library for programmatic
+//! access to search index generation and search functionality.
+//!
+//! ## Basic Usage
+//!
+//! ```rust
+//! use tinysearch::{BasicPost, TinySearch};
+//!
+//! // Create posts
+//! let posts = vec![
+//!     BasicPost {
+//!         title: "First Post".to_string(),
+//!         url: "/first".to_string(),
+//!         body: Some("This is the first post content".to_string()),
+//!         meta: None,
+//!     },
+//!     BasicPost {
+//!         title: "Second Post".to_string(),
+//!         url: "/second".to_string(),
+//!         body: Some("This is the second post about rust programming".to_string()),
+//!         meta: None,
+//!     }
+//! ];
+//!
+//! // Build search index
+//! let search = TinySearch::new();
+//! let index = search.build_index(posts).expect("Failed to build index");
+//!
+//! // Search
+//! let results = search.search(&index, "rust", 10);
+//! ```
+
+pub mod api;
 
 use bincode::Error as BincodeError;
 use serde::{Deserialize, Serialize};
@@ -321,3 +357,6 @@ value = "test"
         assert!(result.is_err());
     }
 }
+
+// Re-export public API types from the api module
+pub use api::{BasicPost, Post, TinySearch};
