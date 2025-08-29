@@ -83,7 +83,14 @@ pub fn prepare_posts(posts: Posts) -> HashMap<PostId, Option<String>> {
     posts
         .into_iter()
         .inspect(|post| debug!("Analyzing {}", post.url))
-        .map(|post| ((post.title, post.url, post.meta), post.body))
+        .map(|post| {
+            let meta_str = if post.meta.is_empty() {
+                String::new()
+            } else {
+                serde_json::to_string(&post.meta).unwrap_or_default()
+            };
+            ((post.title, post.url, meta_str), post.body)
+        })
         .collect()
 }
 

@@ -115,18 +115,19 @@ Basic usage with the provided `BasicPost` struct:
 
 ```rust
 use tinysearch::{BasicPost, TinySearch};
+use std::collections::HashMap;
 
 let posts = vec![
     BasicPost {
         title: "My Post".to_string(),
         url: "/my-post".to_string(),
         body: Some("Post content here".to_string()),
-        meta: None,
+        meta: HashMap::new(),
     }
 ];
 
 let search = TinySearch::new();
-let index = search.build_index(posts)?;
+let index = search.build_index(&posts)?;
 let results = search.search(&index, "content", 10);
 ```
 
