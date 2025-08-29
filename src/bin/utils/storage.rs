@@ -87,7 +87,7 @@ pub fn prepare_posts(posts: Posts, schema: &SearchSchema) -> HashMap<PostId, Opt
                 debug!("Analyzing {}", extract_string_value(url));
             }
         })
-        .filter_map(|post| {
+        .map(|post| {
             let mut indexed_content = String::new();
             let mut metadata_content = String::new();
 
@@ -150,14 +150,14 @@ pub fn prepare_posts(posts: Posts, schema: &SearchSchema) -> HashMap<PostId, Opt
                 },
             );
 
-            Some((
+            (
                 post_id,
                 if indexed_content.trim().is_empty() {
                     None
                 } else {
                     Some(indexed_content.trim().to_string())
                 },
-            ))
+            )
         })
         .collect()
 }
