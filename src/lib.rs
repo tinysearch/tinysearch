@@ -2,6 +2,43 @@
 //!
 //! This crate provides a fast, memory-efficient search engine that can be compiled
 //! to WebAssembly for client-side search functionality on static websites.
+//!
+//! # Library Usage
+//!
+//! This crate can be used both as a command-line tool and as a library for programmatic
+//! access to search index generation and search functionality.
+//!
+//! ## Basic Usage
+//!
+//! ```rust
+//! use tinysearch::{BasicPost, TinySearch};
+//! use std::collections::HashMap;
+//!
+//! // Create posts
+//! let posts = vec![
+//!     BasicPost {
+//!         title: "First Post".to_string(),
+//!         url: "/first".to_string(),
+//!         body: Some("This is the first post content".to_string()),
+//!         meta: HashMap::new(),
+//!     },
+//!     BasicPost {
+//!         title: "Second Post".to_string(),
+//!         url: "/second".to_string(),
+//!         body: Some("This is the second post about rust programming".to_string()),
+//!         meta: HashMap::new(),
+//!     }
+//! ];
+//!
+//! // Build search index
+//! let search = TinySearch::new();
+//! let index = search.build_index(&posts).expect("Failed to build index");
+//!
+//! // Search
+//! let results = search.search(&index, "rust", 10);
+//! ```
+
+pub mod api;
 
 use bincode::Error as BincodeError;
 use serde::{Deserialize, Serialize};
@@ -14,10 +51,10 @@ use xorf::{Filter as XorfFilter, HashProxy, Xor8};
 type Title = String;
 /// URL of a post
 type Url = String;
-/// Optional metadata for a post
-type Meta = Option<String>;
+/// Metadata for a post as serialized key-value pairs
+type Meta = String;
 
-/// Represents a post with its title, URL, and optional metadata
+/// Represents a post with its title, URL, and metadata
 pub type PostId = (Title, Url, Meta);
 
 /// A post with its associated Xor filter for fast lookups
@@ -114,3 +151,6 @@ pub fn search(filters: &'_ Filters, query: String, num_results: usize) -> Vec<&'
 
     matches.into_iter().take(num_results).map(|p| p.0).collect()
 }
+
+// Re-export public API types from the api module
+pub use api::{BasicPost, Post, TinySearch};
