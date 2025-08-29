@@ -12,6 +12,7 @@
 //!
 //! ```rust
 //! use tinysearch::{BasicPost, TinySearch};
+//! use std::collections::HashMap;
 //!
 //! // Create posts
 //! let posts = vec![
@@ -19,19 +20,19 @@
 //!         title: "First Post".to_string(),
 //!         url: "/first".to_string(),
 //!         body: Some("This is the first post content".to_string()),
-//!         meta: None,
+//!         meta: HashMap::new(),
 //!     },
 //!     BasicPost {
 //!         title: "Second Post".to_string(),
 //!         url: "/second".to_string(),
 //!         body: Some("This is the second post about rust programming".to_string()),
-//!         meta: None,
+//!         meta: HashMap::new(),
 //!     }
 //! ];
 //!
 //! // Build search index
 //! let search = TinySearch::new();
-//! let index = search.build_index(posts).expect("Failed to build index");
+//! let index = search.build_index(&posts).expect("Failed to build index");
 //!
 //! // Search
 //! let results = search.search(&index, "rust", 10);

@@ -23,6 +23,7 @@ use crate::{Filters, PostId, Storage};
 ///
 /// ```rust
 /// use tinysearch::Post;
+/// use std::collections::HashMap;
 ///
 /// #[derive(Debug)]
 /// struct BlogPost {
@@ -45,8 +46,10 @@ use crate::{Filters, PostId, Storage};
 ///         Some(&self.content)
 ///     }
 ///
-///     fn meta(&self) -> Option<&str> {
-///         Some(&self.author)
+///     fn meta(&self) -> HashMap<String, String> {
+///         let mut meta = HashMap::new();
+///         meta.insert("author".to_string(), self.author.clone());
+///         meta
 ///     }
 /// }
 /// ```
@@ -69,12 +72,12 @@ pub trait Post {
     /// Return `None` if the post has no body content (e.g., for title-only posts).
     fn body(&self) -> Option<&str>;
 
-    /// Get optional metadata for the post
+    /// Get metadata for the post as key-value pairs
     ///
     /// Metadata is also indexed and searchable, useful for things like author names,
     /// tags, categories, or other structured data you want to be findable.
-    /// Return `None` if no metadata should be indexed.
-    fn meta(&self) -> Option<&str>;
+    /// Return an empty HashMap if no metadata should be indexed.
+    fn meta(&self) -> HashMap<String, String>;
 }
 
 /// Basic implementation of the [`Post`] trait for simple use cases
@@ -86,12 +89,17 @@ pub trait Post {
 ///
 /// ```rust
 /// use tinysearch::BasicPost;
+/// use std::collections::HashMap;
+///
+/// let mut meta = HashMap::new();
+/// meta.insert("category".to_string(), "programming".to_string());
+/// meta.insert("author".to_string(), "John Doe".to_string());
 ///
 /// let post = BasicPost {
 ///     title: "My First Post".to_string(),
 ///     url: "/posts/my-first-post".to_string(),
 ///     body: Some("This is the content of my post".to_string()),
-///     meta: Some("programming".to_string()),
+///     meta,
 /// };
 /// ```
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -102,8 +110,9 @@ pub struct BasicPost {
     pub url: String,
     /// Optional post body content
     pub body: Option<String>,
-    /// Optional metadata (e.g., tags, author, category)
-    pub meta: Option<String>,
+    /// Metadata as key-value pairs (e.g., author, category, tags)
+    #[serde(default)]
+    pub meta: HashMap<String, String>,
 }
 
 impl Post for BasicPost {
@@ -119,8 +128,8 @@ impl Post for BasicPost {
         self.body.as_deref()
     }
 
-    fn meta(&self) -> Option<&str> {
-        self.meta.as_deref()
+    fn meta(&self) -> HashMap<String, String> {
+        self.meta.clone()
     }
 }
 
@@ -134,6 +143,7 @@ impl Post for BasicPost {
 ///
 /// ```rust
 /// use tinysearch::{BasicPost, TinySearch};
+/// use std::collections::HashMap;
 ///
 /// // Create posts
 /// let posts = vec![
@@ -141,13 +151,13 @@ impl Post for BasicPost {
 ///         title: "First Post".to_string(),
 ///         url: "/first".to_string(),
 ///         body: Some("Content about Rust programming".to_string()),
-///         meta: None,
+///         meta: HashMap::new(),
 ///     }
 /// ];
 ///
 /// // Build and search index
 /// let search = TinySearch::new();
-/// let index = search.build_index(posts).unwrap();
+/// let index = search.build_index(&posts).unwrap();
 /// let results = search.search(&index, "rust", 10);
 /// ```
 #[derive(Debug, Clone)]
@@ -221,7 +231,7 @@ impl TinySearch {
     ///     "title": "My Post",
     ///     "url": "/my-post",
     ///     "body": "Post content goes here",
-    ///     "meta": "programming"
+    ///     "meta": {"category": "programming", "author": "John"}
     ///   }
     /// ]"#;
     ///
@@ -257,23 +267,21 @@ impl TinySearch {
     ///
     /// ```rust
     /// use tinysearch::{BasicPost, TinySearch};
+    /// use std::collections::HashMap;
     ///
     /// let posts = vec![
     ///     BasicPost {
     ///         title: "Hello World".to_string(),
     ///         url: "/hello".to_string(),
     ///         body: Some("This is my first post".to_string()),
-    ///         meta: None,
+    ///         meta: HashMap::new(),
     ///     }
     /// ];
     ///
     /// let search = TinySearch::new();
-    /// let filters = search.build_index(posts).unwrap();
+    /// let filters = search.build_index(&posts).unwrap();
     /// ```
-    pub fn build_index<P: Post>(
-        &self,
-        posts: Vec<P>,
-    ) -> Result<Filters, Box<dyn std::error::Error>> {
+    pub fn build_index<P: Post>(&self, posts: &[P]) -> Result<Filters, Box<dyn std::error::Error>> {
         let prepared_posts = self.prepare_posts(posts);
         self.generate_filters(prepared_posts)
     }
@@ -296,17 +304,18 @@ impl TinySearch {
     ///
     /// ```rust
     /// use tinysearch::{BasicPost, TinySearch};
+    /// use std::collections::HashMap;
     ///
     /// let posts = vec![
     ///     BasicPost {
     ///         title: "Rust Guide".to_string(),
     ///         url: "/rust".to_string(),
     ///         body: Some("Learn Rust programming".to_string()),
-    ///         meta: None,
+    ///         meta: HashMap::new(),
     ///     }
     /// ];
     /// let search = TinySearch::new();
-    /// let index = search.build_index(posts).unwrap();
+    /// let index = search.build_index(&posts).unwrap();
     ///
     /// let results = search.search(&index, "rust programming", 5);
     /// for result in results {
@@ -339,25 +348,26 @@ impl TinySearch {
     ///
     /// ```rust
     /// use tinysearch::{BasicPost, TinySearch};
+    /// use std::collections::HashMap;
     ///
     /// let posts = vec![
     ///     BasicPost {
     ///         title: "My Post".to_string(),
     ///         url: "/post".to_string(),
     ///         body: Some("Post content".to_string()),
-    ///         meta: None,
+    ///         meta: HashMap::new(),
     ///     }
     /// ];
     /// let search = TinySearch::new();
     ///
     /// // Build and serialize index
-    /// let index_bytes = search.build_and_serialize_index(posts).unwrap();
+    /// let index_bytes = search.build_and_serialize_index(&posts).unwrap();
     ///
     /// // You can save to file: std::fs::write("search_index.bin", index_bytes).unwrap();
     /// ```
     pub fn build_and_serialize_index<P: Post>(
         &self,
-        posts: Vec<P>,
+        posts: &[P],
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let filters = self.build_index(posts)?;
         let storage = Storage::from(filters);
@@ -381,6 +391,7 @@ impl TinySearch {
     ///
     /// ```rust
     /// use tinysearch::{BasicPost, TinySearch};
+    /// use std::collections::HashMap;
     ///
     /// let search = TinySearch::new();
     ///
@@ -390,10 +401,10 @@ impl TinySearch {
     ///         title: "Test".to_string(),
     ///         url: "/test".to_string(),
     ///         body: Some("content".to_string()),
-    ///         meta: None,
+    ///         meta: HashMap::new(),
     ///     }
     /// ];
-    /// let index_bytes = search.build_and_serialize_index(posts).unwrap();
+    /// let index_bytes = search.build_and_serialize_index(&posts).unwrap();
     ///
     /// // Then load it back
     /// let index = search.load_index_from_bytes(&index_bytes).unwrap();
@@ -403,6 +414,18 @@ impl TinySearch {
         let storage = Storage::from_bytes(bytes)?;
         Ok(storage.filters)
     }
+
+    // TODO: Add WASM generation function
+    // This would need to:
+    // 1. Create a temporary crate directory
+    // 2. Generate Cargo.toml and lib.rs files
+    // 3. Compile to wasm32-unknown-unknown target
+    // 4. Generate JS glue code
+    // 5. Return the generated files
+    //
+    // This is quite complex and involves filesystem operations,
+    // so it may be better suited as a separate utility function
+    // or kept as a CLI-only feature for now.
 }
 
 impl Default for TinySearch {
@@ -478,15 +501,16 @@ impl TinySearch {
     }
 
     /// Prepare posts for filter generation (internal implementation)
-    fn prepare_posts<P: Post>(&self, posts: Vec<P>) -> HashMap<PostId, Option<String>> {
+    fn prepare_posts<P: Post>(&self, posts: &[P]) -> HashMap<PostId, Option<String>> {
         posts
-            .into_iter()
+            .iter()
             .map(|post| {
-                let post_id = (
-                    post.title().to_string(),
-                    post.url().to_string(),
-                    post.meta().map(|s| s.to_string()),
-                );
+                let meta_opt = if post.meta().is_empty() {
+                    None
+                } else {
+                    Some(serde_json::to_string(&post.meta()).unwrap_or_default())
+                };
+                let post_id = (post.title().to_string(), post.url().to_string(), meta_opt);
                 let body = post.body().map(|s| s.to_string());
                 (post_id, body)
             })

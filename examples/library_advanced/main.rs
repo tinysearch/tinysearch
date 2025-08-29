@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use tinysearch::{Post, TinySearch};
 
 /// Example of implementing the Post trait on your own custom type
@@ -23,13 +24,12 @@ impl Post for BlogPost {
         Some(&self.content)
     }
 
-    fn meta(&self) -> Option<&str> {
-        // Include author and first tag in searchable metadata
-        if self.tags.is_empty() {
-            Some(&self.author)
-        } else {
-            Some(&self.tags[0])
-        }
+    fn meta(&self) -> HashMap<String, String> {
+        // Include author and tags in searchable metadata
+        let mut meta = HashMap::new();
+        meta.insert("author".to_string(), self.author.clone());
+        meta.insert("tags".to_string(), self.tags.join(", "));
+        meta
     }
 }
 
@@ -68,7 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Build index from custom post types
     println!("Building index from {} blog posts...", blog_posts.len());
-    let index = search.build_index(blog_posts)?;
+    let index = search.build_index(&blog_posts)?;
     println!("Index built with {} filters\n", index.len());
 
     // Search examples

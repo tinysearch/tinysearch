@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use tinysearch::{BasicPost, TinySearch};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -12,7 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "Rust is a systems programming language that is fast, safe, and concurrent"
                     .to_string(),
             ),
-            meta: None,
+            meta: HashMap::new(),
         },
         BasicPost {
             title: "WebAssembly Tutorial".to_string(),
@@ -21,7 +22,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "WebAssembly (WASM) allows you to run code at near-native speed in web browsers"
                     .to_string(),
             ),
-            meta: None,
+            meta: HashMap::new(),
         },
         BasicPost {
             title: "Building Search Engines".to_string(),
@@ -30,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "Search engines use various algorithms to index and retrieve relevant documents"
                     .to_string(),
             ),
-            meta: None,
+            meta: HashMap::new(),
         },
     ];
 
@@ -39,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Build search index
     println!("Building search index from {} posts...", posts.len());
-    let index = tinysearch.build_index(posts)?;
+    let index = tinysearch.build_index(&posts)?;
     println!("Index built successfully with {} filters\n", index.len());
 
     // Search the index
@@ -68,7 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Example 3: Serialize and deserialize index
     println!("Testing serialization...");
-    let serialized = tinysearch.build_and_serialize_index(json_posts)?;
+    let serialized = tinysearch.build_and_serialize_index(&json_posts)?;
     println!("Serialized index size: {} bytes", serialized.len());
 
     let deserialized_index = tinysearch.load_index_from_bytes(&serialized)?;
@@ -91,10 +92,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         title: "The Ultimate Guide".to_string(),
         url: "/ultimate-guide".to_string(),
         body: Some("This is the ultimate guide to everything".to_string()),
-        meta: None,
+        meta: HashMap::new(),
     }];
 
-    let custom_stopwords_index = tinysearch.build_index(test_posts)?;
+    let custom_stopwords_index = tinysearch.build_index(&test_posts)?;
     let stopword_results = tinysearch.search(&custom_stopwords_index, "ultimate", 5);
     println!(
         "Results with custom stopwords: {} matches",
