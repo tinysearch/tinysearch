@@ -107,7 +107,7 @@ mod tests {
             (
                 "Maybe You Don't Need Kubernetes, Or Excel - You Know".to_string(), //title
                 "".to_string(),                                                     //url
-                None,                                                               //meta
+                String::new(),                                                      //meta
             ),
             None, //body
         );
