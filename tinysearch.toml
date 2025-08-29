@@ -1,0 +1,10 @@
+[schema]
+# Fields that should be indexed for searching  
+indexed_fields = ["title", "body"]
+
+# Fields that should be stored as metadata but not indexed
+# Note: url_field is automatically included as metadata, don't duplicate it here
+metadata_fields = []
+
+# Field that contains the URL for each document
+url_field = "url"

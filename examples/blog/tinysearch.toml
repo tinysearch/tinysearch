@@ -1,0 +1,11 @@
+[schema]
+# Fields that will be indexed for full-text search
+# Readers can search by title, content, excerpt, and tags
+indexed_fields = ["title", "content", "excerpt", "tags"]
+
+# Fields that will be stored as metadata but not indexed
+# These provide context in search results
+metadata_fields = ["author", "publish_date", "category", "reading_time", "featured_image"]
+
+# Field that contains the URL for each blog post
+url_field = "permalink"
