@@ -319,7 +319,7 @@ impl TinySearch {
     ///
     /// let results = search.search(&index, "rust programming", 5);
     /// for result in results {
-    ///     println!("Found: {} at {}", result.0, result.1);
+    ///     println!("Found: {} at {}", result.title, result.url);
     /// }
     /// ```
     pub fn search<'a>(
@@ -414,18 +414,6 @@ impl TinySearch {
         let storage = Storage::from_bytes(bytes)?;
         Ok(storage.filters)
     }
-
-    // TODO: Add WASM generation function
-    // This would need to:
-    // 1. Create a temporary crate directory
-    // 2. Generate Cargo.toml and lib.rs files
-    // 3. Compile to wasm32-unknown-unknown target
-    // 4. Generate JS glue code
-    // 5. Return the generated files
-    //
-    // This is quite complex and involves filesystem operations,
-    // so it may be better suited as a separate utility function
-    // or kept as a CLI-only feature for now.
 }
 
 impl Default for TinySearch {
@@ -433,10 +421,6 @@ impl Default for TinySearch {
         Self::new()
     }
 }
-
-// ============================================================================
-// Internal implementation details
-// ============================================================================
 
 impl TinySearch {
     /// Get the stopwords set to use for this instance
@@ -484,15 +468,26 @@ impl TinySearch {
         let filters = split_posts
             .into_iter()
             .map(|(post_id, body)| {
-                // Also add title to filter
-                let title: HashSet<String> = self.tokenize_with_stopwords(&post_id.0, &stopwords);
-                let content: Vec<String> = body.map_or_else(
-                    || title.clone().into_iter().collect(),
-                    |body| body.union(&title).cloned().collect(),
-                );
+                // Add title to filter
+                let title: HashSet<String> = self.tokenize_with_stopwords(&post_id.title, &stopwords);
+                
+                // Add metadata to filter
+                let metadata: HashSet<String> = if post_id.meta.is_empty() {
+                    HashSet::new()
+                } else {
+                    self.tokenize_with_stopwords(&post_id.meta, &stopwords)
+                };
+                
+                let mut content: HashSet<String> = title;
+                content.extend(metadata);
+                if let Some(body) = body {
+                    content.extend(body);
+                }
+                
+                let content_vec: Vec<String> = content.into_iter().collect();
                 let filter =
                     HashProxy::<String, std::collections::hash_map::DefaultHasher, Xor8>::from(
-                        &content,
+                        &content_vec,
                     );
                 (post_id, filter)
             })
@@ -505,12 +500,16 @@ impl TinySearch {
         posts
             .iter()
             .map(|post| {
-                let meta_opt = if post.meta().is_empty() {
-                    None
+                let meta_str = if post.meta().is_empty() {
+                    String::new()
                 } else {
-                    Some(serde_json::to_string(&post.meta()).unwrap_or_default())
+                    serde_json::to_string(&post.meta()).unwrap_or_default()
                 };
-                let post_id = (post.title().to_string(), post.url().to_string(), meta_opt);
+                let post_id = PostId {
+                    title: post.title().to_string(),
+                    url: post.url().to_string(),
+                    meta: meta_str,
+                };
                 let body = post.body().map(|s| s.to_string());
                 (post_id, body)
             })

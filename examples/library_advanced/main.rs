@@ -82,9 +82,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("  No results found");
         } else {
             for result in results {
-                println!("  - {} ({})", result.0, result.1);
-                if let Some(meta) = &result.2 {
-                    println!("    Meta: {}", meta);
+                println!("  - {} ({})", result.title, result.url);
+                if !result.meta.is_empty() {
+                    println!("    Meta: {}", result.meta);
                 }
             }
         }

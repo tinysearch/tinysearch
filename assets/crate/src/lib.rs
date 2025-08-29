@@ -33,9 +33,9 @@ pub extern "C" fn search(query_ptr: *const c_char, num_results: usize) -> *mut c
     let json_results: Vec<serde_json::Value> = results
         .into_iter()
         .map(|post_id| serde_json::json!({
-            "title": post_id.0,
-            "url": post_id.1,
-            "meta": post_id.2
+            "title": post_id.title,
+            "url": post_id.url,
+            "meta": post_id.meta
         }))
         .collect();
 

@@ -49,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Searching for: '{}'", query);
         let results = tinysearch.search(&index, query, 5);
         for result in results {
-            println!("  - {}: {}", result.0, result.1);
+            println!("  - {}: {}", result.title, result.url);
         }
         println!();
     }
@@ -102,7 +102,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         stopword_results.len()
     );
     for result in stopword_results {
-        println!("  - {}: {}", result.0, result.1);
+        println!("  - {}: {}", result.title, result.url);
     }
 
     println!("\nLibrary API test completed successfully!");

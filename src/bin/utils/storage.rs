@@ -64,13 +64,24 @@ pub fn generate_filters(posts: HashMap<PostId, Option<String>>) -> Result<Filter
     let filters = split_posts
         .into_iter()
         .map(|(post_id, body)| {
-            // Also add title to filter
-            let title: HashSet<String> = tokenize(&post_id.0, &stopwords);
-            let content: Vec<String> = body.map_or_else(
-                || title.clone().into_iter().collect(),
-                |body| body.union(&title).cloned().collect(),
-            );
-            let filter = HashProxy::from(&content);
+            // Add title to filter
+            let title: HashSet<String> = tokenize(&post_id.title, &stopwords);
+
+            // Add metadata to filter
+            let metadata: HashSet<String> = if post_id.meta.is_empty() {
+                HashSet::new()
+            } else {
+                tokenize(&post_id.meta, &stopwords)
+            };
+
+            let mut content: HashSet<String> = title;
+            content.extend(metadata);
+            if let Some(body) = body {
+                content.extend(body);
+            }
+
+            let content_vec: Vec<String> = content.into_iter().collect();
+            let filter = HashProxy::from(&content_vec);
             (post_id, filter)
         })
         .collect();
@@ -139,16 +150,18 @@ pub fn prepare_posts(posts: Posts, schema: &SearchSchema) -> HashMap<PostId, Opt
                 url_value.clone()
             };
 
-            // Create PostId with title, URL, and metadata
-            let post_id = (
+            // Create PostId with title, URL, and metadata string
+            let meta_str = if metadata_content.trim().is_empty() {
+                String::new()
+            } else {
+                metadata_content.trim().to_string()
+            };
+
+            let post_id = PostId {
                 title,
-                url_value,
-                if metadata_content.trim().is_empty() {
-                    None
-                } else {
-                    Some(metadata_content.trim().to_string())
-                },
-            );
+                url: url_value,
+                meta: meta_str,
+            };
 
             (
                 post_id,
@@ -190,11 +203,11 @@ mod tests {
     fn test_generate_filters() {
         let mut posts = HashMap::new();
         posts.insert(
-            (
-                "Maybe You Don't Need Kubernetes, Or Excel - You Know".to_string(), //title
-                "".to_string(),                                                     //url
-                None,                                                               //meta
-            ),
+            PostId {
+                title: "Maybe You Don't Need Kubernetes, Or Excel - You Know".to_string(),
+                url: "".to_string(),
+                meta: String::new(),
+            },
             None, //body
         );
         let filters = generate_filters(posts).unwrap();
@@ -247,8 +260,8 @@ mod tests {
         assert_eq!(prepared.len(), 1);
         let (post_id, body) = prepared.iter().next().unwrap();
 
-        assert_eq!(post_id.0, "Test Title");
-        assert_eq!(post_id.1, "https://example.com");
+        assert_eq!(post_id.title, "Test Title");
+        assert_eq!(post_id.url, "https://example.com");
         assert!(body.is_some());
         assert!(body.as_ref().unwrap().contains("Test Title"));
         assert!(body.as_ref().unwrap().contains("Test body content"));
@@ -297,12 +310,11 @@ mod tests {
         let (post_id, indexed_content) = prepared.iter().next().unwrap();
 
         // Check PostId structure
-        assert_eq!(post_id.0, "Gaming Laptop"); // Title should be first indexed field
-        assert_eq!(post_id.1, "https://example.com/laptop"); // URL from product_url field
-        assert!(post_id.2.is_some()); // Should have metadata
-        let metadata = post_id.2.as_ref().unwrap();
-        assert!(metadata.contains("$1999.99"));
-        assert!(metadata.contains("TechCorp"));
+        assert_eq!(post_id.title, "Gaming Laptop"); // Title should be first indexed field
+        assert_eq!(post_id.url, "https://example.com/laptop"); // URL from product_url field
+        assert!(!post_id.meta.is_empty()); // Should have metadata
+        assert!(post_id.meta.contains("$1999.99"));
+        assert!(post_id.meta.contains("TechCorp"));
 
         // Check indexed content
         assert!(indexed_content.is_some());

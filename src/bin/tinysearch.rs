@@ -197,8 +197,10 @@ impl Stage for Search {
         let results = base_search(&filters, self.term.clone(), self.num_searches);
         results.iter().for_each(|result| {
             println!(
-                "Title: {}, Url: {}, Meta: {:?}",
-                result.0, result.1, result.2
+                "Title: {title}, Url: {url}, Meta: {meta}",
+                title = result.title,
+                url = result.url,
+                meta = result.meta
             );
         });
         Ok(())

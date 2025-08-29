@@ -50,21 +50,25 @@ use xorf::{Filter as XorfFilter, HashProxy, Xor8};
 #[cfg(feature = "bin")]
 use std::path::Path;
 
-/// Title of a post
-type Title = String;
-/// URL of a post
-type Url = String;
-/// Optional metadata for a post
-type Meta = Option<String>;
-
-/// Represents a post with its title, URL, and optional metadata
-pub type PostId = (Title, Url, Meta);
+/// Represents a post with its title, URL, and metadata
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct PostId {
+    /// Post title
+    pub title: String,
+    /// Post URL
+    pub url: String,
+    /// Serialized metadata string
+    pub meta: String,
+}
 
 /// A post with its associated Xor filter for fast lookups
 pub type PostFilter = (PostId, HashProxy<String, DefaultHasher, Xor8>);
 
 /// Collection of all post filters
 pub type Filters = Vec<PostFilter>;
+
+// Re-export public API types from the API module
+pub use api::{BasicPost, Post, TinySearch};
 
 /// Configuration schema for tinysearch.toml
 #[cfg(feature = "bin")]
@@ -113,7 +117,6 @@ impl SearchSchema {
         let config: SearchSchemaConfig = toml::from_str(&toml_content)
             .map_err(|e| format!("Failed to parse tinysearch.toml: {e}"))?;
 
-        // Validate schema
         config.schema.validate()?;
 
         Ok(config.schema)
@@ -207,8 +210,8 @@ const TITLE_WEIGHT: usize = 3;
 
 /// Calculates a combined score for a post based on title and body matches
 /// Post title matches are weighted higher than body matches
-fn score(title: &str, search_terms: &[String], filter: &Filter) -> usize {
-    let title_terms: Vec<String> = tokenize(title);
+fn score(post_id: &PostId, search_terms: &[String], filter: &Filter) -> usize {
+    let title_terms: Vec<String> = tokenize(&post_id.title);
     let title_score: usize = search_terms
         .iter()
         .filter(|term| title_terms.contains(term))
@@ -238,7 +241,7 @@ pub fn search(filters: &'_ Filters, query: String, num_results: usize) -> Vec<&'
     let search_terms: Vec<String> = tokenize(&query);
     let mut matches: Vec<(&PostId, usize)> = filters
         .iter()
-        .map(|(post_id, filter)| (post_id, score(&post_id.0, &search_terms, filter)))
+        .map(|(post_id, filter)| (post_id, score(post_id, &search_terms, filter)))
         .filter(|(_post_id, score)| *score > 0)
         .collect();
 
@@ -358,6 +361,3 @@ value = "test"
         assert!(result.is_err());
     }
 }
-
-// Re-export public API types from the api module
-pub use api::{BasicPost, Post, TinySearch};
