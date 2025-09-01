@@ -2,6 +2,43 @@
 //!
 //! This crate provides a fast, memory-efficient search engine that can be compiled
 //! to WebAssembly for client-side search functionality on static websites.
+//!
+//! # Library Usage
+//!
+//! This crate can be used both as a command-line tool and as a library for programmatic
+//! access to search index generation and search functionality.
+//!
+//! ## Basic Usage
+//!
+//! ```rust
+//! use tinysearch::{BasicPost, TinySearch, SearchIndex};
+//! use std::collections::HashMap;
+//!
+//! // Create posts
+//! let posts = vec![
+//!     BasicPost {
+//!         title: "First Post".to_string(),
+//!         url: "/first".to_string(),
+//!         body: Some("This is the first post content".to_string()),
+//!         meta: HashMap::new(),
+//!     },
+//!     BasicPost {
+//!         title: "Second Post".to_string(),
+//!         url: "/second".to_string(),
+//!         body: Some("This is the second post about rust programming".to_string()),
+//!         meta: HashMap::new(),
+//!     }
+//! ];
+//!
+//! // Build search index
+//! let search = TinySearch::new();
+//! let index: SearchIndex = search.build_index(&posts).expect("Failed to build index");
+//!
+//! // Search
+//! let results = search.search(&index, "rust", 10);
+//! ```
+
+pub mod api;
 
 use bincode::Error as BincodeError;
 use serde::{Deserialize, Serialize};
@@ -13,21 +50,48 @@ use xorf::{Filter as XorfFilter, HashProxy, Xor8};
 #[cfg(feature = "bin")]
 use std::path::Path;
 
-/// Title of a post
-type Title = String;
-/// URL of a post
-type Url = String;
-/// Optional metadata for a post
-type Meta = Option<String>;
-
-/// Represents a post with its title, URL, and optional metadata
-pub type PostId = (Title, Url, Meta);
+/// Represents a post with its title, URL, and metadata
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct PostId {
+    /// Post title
+    pub title: String,
+    /// Post URL
+    pub url: String,
+    /// Serialized metadata string
+    pub meta: String,
+}
 
 /// A post with its associated Xor filter for fast lookups
 pub type PostFilter = (PostId, HashProxy<String, DefaultHasher, Xor8>);
 
-/// Collection of all post filters
-pub type Filters = Vec<PostFilter>;
+/// A deserialized search index containing posts and their search filters
+///
+/// This allows users to store and work with search indexes without
+/// needing to import the xorf library directly.
+///
+/// # Example
+///
+/// ```rust
+/// use tinysearch::{BasicPost, TinySearch, SearchIndex};
+/// use std::collections::HashMap;
+///
+/// let posts = vec![
+///     BasicPost {
+///         title: "My Post".to_string(),
+///         url: "/my-post".to_string(),
+///         body: Some("Post content here".to_string()),
+///         meta: HashMap::new(),
+///     }
+/// ];
+///
+/// let search = TinySearch::new();
+/// let index: SearchIndex = search.build_index(&posts).unwrap();
+/// let results = search.search(&index, "content", 10);
+/// ```
+pub type SearchIndex = Vec<PostFilter>;
+
+// Re-export public API types from the API module
+pub use api::{BasicPost, Post, TinySearch};
 
 /// Configuration schema for tinysearch.toml
 #[cfg(feature = "bin")]
@@ -53,7 +117,7 @@ pub struct SearchSchema {
 impl Default for SearchSchema {
     /// Default schema configuration matching current JSON structure
     fn default() -> Self {
-        SearchSchema {
+        Self {
             indexed_fields: vec!["title".to_string(), "body".to_string()],
             metadata_fields: vec![],
             url_field: "url".to_string(),
@@ -68,7 +132,7 @@ impl SearchSchema {
         let toml_path = path.as_ref().join("tinysearch.toml");
 
         if !toml_path.exists() {
-            return Ok(SearchSchema::default());
+            return Ok(Self::default());
         }
 
         let toml_content = std::fs::read_to_string(&toml_path)
@@ -76,7 +140,6 @@ impl SearchSchema {
         let config: SearchSchemaConfig = toml::from_str(&toml_content)
             .map_err(|e| format!("Failed to parse tinysearch.toml: {e}"))?;
 
-        // Validate schema
         config.schema.validate()?;
 
         Ok(config.schema)
@@ -125,12 +188,12 @@ impl SearchSchema {
 #[derive(Serialize, Deserialize)]
 pub struct Storage {
     /// Vector of post filters for search functionality
-    pub filters: Filters,
+    pub filters: SearchIndex,
 }
 
-impl From<Filters> for Storage {
-    fn from(filters: Filters) -> Self {
-        Storage { filters }
+impl From<SearchIndex> for Storage {
+    fn from(filters: SearchIndex) -> Self {
+        Self { filters }
     }
 }
 
@@ -157,8 +220,8 @@ impl Storage {
 
     /// Deserializes storage from bytes using bincode
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, BincodeError> {
-        let decoded: Filters = bincode::deserialize(bytes)?;
-        Ok(Storage { filters: decoded })
+        let decoded: SearchIndex = bincode::deserialize(bytes)?;
+        Ok(Self { filters: decoded })
     }
 }
 
@@ -170,13 +233,15 @@ const TITLE_WEIGHT: usize = 3;
 
 /// Calculates a combined score for a post based on title and body matches
 /// Post title matches are weighted higher than body matches
-fn score(title: &str, search_terms: &[String], filter: &Filter) -> usize {
-    let title_terms: Vec<String> = tokenize(title);
+fn score(post_id: &PostId, search_terms: &[String], filter: &Filter) -> usize {
+    let title_terms: Vec<String> = tokenize(&post_id.title);
     let title_score: usize = search_terms
         .iter()
         .filter(|term| title_terms.contains(term))
         .count();
-    TITLE_WEIGHT * title_score + filter.score(search_terms)
+    TITLE_WEIGHT
+        .saturating_mul(title_score)
+        .saturating_add(filter.score(search_terms))
 }
 
 /// Tokenizes a string into lowercase words, removing empty tokens
@@ -191,17 +256,21 @@ fn tokenize(s: &str) -> Vec<String> {
 /// Performs a search query against the provided filters
 ///
 /// # Arguments
-/// * `filters` - The search index containing all posts and their filters
+/// * `index` - The search index containing all posts and their filters
 /// * `query` - The search query string
 /// * `num_results` - Maximum number of results to return
 ///
 /// # Returns
 /// Vector of `PostId` references, sorted by relevance score (highest first)
-pub fn search(filters: &'_ Filters, query: String, num_results: usize) -> Vec<&'_ PostId> {
-    let search_terms: Vec<String> = tokenize(&query);
-    let mut matches: Vec<(&PostId, usize)> = filters
+pub fn search<'index>(
+    index: &'index SearchIndex,
+    query: &str,
+    num_results: usize,
+) -> Vec<&'index PostId> {
+    let search_terms: Vec<String> = tokenize(query);
+    let mut matches: Vec<(&PostId, usize)> = index
         .iter()
-        .map(|(post_id, filter)| (post_id, score(&post_id.0, &search_terms, filter)))
+        .map(|(post_id, filter)| (post_id, score(post_id, &search_terms, filter)))
         .filter(|(_post_id, score)| *score > 0)
         .collect();
 
@@ -212,6 +281,7 @@ pub fn search(filters: &'_ Filters, query: String, num_results: usize) -> Vec<&'
 
 #[cfg(test)]
 #[cfg(feature = "bin")]
+#[allow(clippy::panic, clippy::unwrap_used)]
 mod schema_tests {
     use super::*;
     use tempfile::TempDir;
@@ -223,7 +293,7 @@ mod schema_tests {
         assert_eq!(schema.metadata_fields, Vec::<String>::new());
         assert_eq!(schema.url_field, "url");
         if let Err(e) = schema.validate() {
-            panic!("Default schema validation failed: {}", e);
+            panic!("Default schema validation failed: {e}");
         }
     }
 

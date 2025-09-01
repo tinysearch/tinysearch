@@ -1,3 +1,11 @@
+#![allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    clippy::panic,
+    clippy::print_stderr,
+    clippy::missing_docs_in_private_items
+)]
+
 use std::process::Command;
 use tempfile::TempDir;
 
@@ -22,11 +30,10 @@ fn test_cli_wasm_mode() {
         .expect("Failed to check installed targets");
 
     let installed_targets = String::from_utf8_lossy(&target_check.stdout);
-    if !installed_targets.contains("wasm32-unknown-unknown") {
-        panic!(
-            "wasm32-unknown-unknown target is not installed. Install it with: rustup target add wasm32-unknown-unknown"
-        );
-    }
+    assert!(
+        installed_targets.contains("wasm32-unknown-unknown"),
+        "wasm32-unknown-unknown target is not installed. Install it with: rustup target add wasm32-unknown-unknown"
+    );
 
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
 
@@ -53,15 +60,15 @@ fn test_cli_wasm_mode() {
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
-        eprintln!("WASM build failed. Stdout: {}", stdout);
-        eprintln!("Stderr: {}", stderr);
+        eprintln!("WASM build failed. Stdout: {stdout}");
+        eprintln!("Stderr: {stderr}");
         panic!("WASM build failed unexpectedly");
     }
 
     // Verify that WASM and JS files were created
     let wasm_files: Vec<_> = std::fs::read_dir(&temp_dir)
         .expect("Failed to read output directory")
-        .filter_map(|entry| entry.ok())
+        .filter_map(std::result::Result::ok)
         .filter(|entry| {
             entry
                 .path()
@@ -106,7 +113,7 @@ fn test_cli_storage_mode() {
     // Storage mode should work with the provided fixtures
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        eprintln!("Command failed: {}", stderr);
+        eprintln!("Command failed: {stderr}");
     }
 
     assert!(output.status.success());
@@ -173,8 +180,8 @@ url_field = "permalink"
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
-        eprintln!("Custom schema build failed. Stdout: {}", stdout);
-        eprintln!("Stderr: {}", stderr);
+        eprintln!("Custom schema build failed. Stdout: {stdout}");
+        eprintln!("Stderr: {stderr}");
         panic!("Custom schema build failed unexpectedly");
     }
 
@@ -273,8 +280,8 @@ url_field = "product_url"
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
-        eprintln!("Flexible fields build failed. Stdout: {}", stdout);
-        eprintln!("Stderr: {}", stderr);
+        eprintln!("Flexible fields build failed. Stdout: {stdout}");
+        eprintln!("Stderr: {stderr}");
         panic!("Flexible fields build failed unexpectedly");
     }
 

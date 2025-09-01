@@ -1,17 +1,17 @@
-use std::sync::OnceLock;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
+use std::sync::OnceLock;
 
-use tinysearch::{search as base_search, Filters, PostId, Storage};
+use tinysearch::{PostId, SearchIndex, Storage, search as base_search};
 
-static FILTERS: OnceLock<Filters> = OnceLock::new();
+static SEARCH_INDEX: OnceLock<SearchIndex> = OnceLock::new();
 
 pub fn search_local(query: String, num_results: usize) -> Vec<&'static PostId> {
-    let filters = FILTERS.get_or_init(|| {
+    let index = SEARCH_INDEX.get_or_init(|| {
         let bytes = include_bytes!("storage");
         Storage::from_bytes(bytes).unwrap().filters
     });
-    base_search(filters, query, num_results)
+    base_search(index, &query, num_results)
 }
 
 /// Export for WASM - search function that takes C strings and returns JSON
@@ -28,15 +28,17 @@ pub extern "C" fn search(query_ptr: *const c_char, num_results: usize) -> *mut c
     };
 
     let results = search_local(query, num_results);
-    
+
     // Convert results to a simple JSON format
     let json_results: Vec<serde_json::Value> = results
         .into_iter()
-        .map(|post_id| serde_json::json!({
-            "title": post_id.0,
-            "url": post_id.1,
-            "meta": post_id.2
-        }))
+        .map(|post_id| {
+            serde_json::json!({
+                "title": post_id.title,
+                "url": post_id.url,
+                "meta": post_id.meta
+            })
+        })
         .collect();
 
     let json_string = match serde_json::to_string(&json_results) {

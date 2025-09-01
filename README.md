@@ -171,6 +171,40 @@ metadata_fields = ["version", "last_updated", "contributor"]
 url_field = "doc_url"
 ```
 
+## Library Usage (Experimental)
+
+tinysearch can be used as a Rust library for programmatic search index generation and searching. This feature is experimental and the API may change.
+
+Add tinysearch to your `Cargo.toml`:
+
+```sh
+cargo add tinysearch
+```
+
+Basic usage with the provided `BasicPost` struct:
+
+```rust
+use tinysearch::{BasicPost, TinySearch};
+use std::collections::HashMap;
+
+let posts = vec![
+    BasicPost {
+        title: "My Post".to_string(),
+        url: "/my-post".to_string(),
+        body: Some("Post content here".to_string()),
+        meta: HashMap::new(),
+    }
+];
+
+let search = TinySearch::new();
+let index = search.build_index(&posts)?;
+let results = search.search(&index, "content", 10);
+```
+
+For advanced usage including custom post types and configuration, see:
+- [Basic library example](examples/library_basic/)
+- [Advanced library example](examples/library_advanced/)
+
 ## Advanced Usage
 
 For advanced usage options, run
