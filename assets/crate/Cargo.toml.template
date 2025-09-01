@@ -3,7 +3,7 @@
 [package]
 name = "THIS_VALUE_SHOULD_BE_FILLED"
 authors = ["Matthias Endler <matthias-endler@gmx.net>"]
-version = "0.9.0"
+version = "0.10.0"
 edition = "2024"
 rust-version = "1.85"
 description = "A tiny search engine for static websites"

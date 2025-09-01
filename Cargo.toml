@@ -1,6 +1,6 @@
 [package]
 name = "tinysearch"
-version = "0.9.0"
+version = "0.10.0"
 authors = ["Matthias Endler <matthias-endler@gmx.net>"]
 edition = "2024"
 rust-version = "1.85"
@@ -46,15 +46,7 @@ features = ["serde"]
 
 [features]
 default = []
-bin = [
-	"argh",
-	"log",
-	"anyhow",
-	"tempfile",
-	"strum",
-	"toml",
-	"toml_edit",
-]
+bin = ["argh", "log", "anyhow", "tempfile", "strum", "toml", "toml_edit"]
 
 [dev-dependencies]
 tempfile = "3.14.0"
