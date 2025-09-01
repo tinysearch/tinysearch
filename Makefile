@@ -77,12 +77,12 @@ release: ## Run tinysearch release build
 
 example: check-wasm-target ## Generate WASM output with sample data
 	mkdir -p wasm_output
-	cargo run --features=bin -- -m wasm -p wasm_output fixtures/index.json
+	cargo run --features=bin -- -m wasm -p wasm_output -e 'path="$(PWD)"' fixtures/index.json
 
 demo: check-wasm-target ## Run interactive demo (generates WASM and starts server)
 	@echo "🚀 Building TinySearch and generating WASM demo..."
 	@mkdir -p demo
-	@cargo run --features=bin -- -m wasm -p demo fixtures/index.json
+	@cargo run --features=bin -- -m wasm -p demo -e 'path="$(PWD)"' fixtures/index.json
 	@mv demo/demo.html demo/index.html
 	@echo "🌐 Starting demo server at http://localhost:8000/demo/"
 	@echo "   Press Ctrl+C to stop the server"

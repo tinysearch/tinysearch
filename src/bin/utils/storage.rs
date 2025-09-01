@@ -6,7 +6,7 @@ use std::path;
 use super::assets::STOP_WORDS;
 use super::index::Posts;
 use strip_markdown::strip_markdown;
-use tinysearch::{Filters, PostId, SearchSchema, Storage};
+use tinysearch::{PostId, SearchIndex, SearchSchema, Storage};
 use xorf::HashProxy;
 
 pub fn write(posts: Posts, path: &path::PathBuf, schema: &SearchSchema) -> Result<(), Error> {
@@ -19,7 +19,7 @@ pub fn write(posts: Posts, path: &path::PathBuf, schema: &SearchSchema) -> Resul
     Ok(())
 }
 
-fn build(posts: Posts, schema: &SearchSchema) -> Result<Filters, Error> {
+fn build(posts: Posts, schema: &SearchSchema) -> Result<SearchIndex, Error> {
     let posts = prepare_posts(posts, schema);
     generate_filters(posts)
 }
@@ -41,7 +41,7 @@ fn tokenize(words: &str, stopwords: &HashSet<String>) -> HashSet<String> {
 
 // Read all posts and generate Bloomfilters from them.
 #[unsafe(no_mangle)]
-pub fn generate_filters(posts: HashMap<PostId, Option<String>>) -> Result<Filters, Error> {
+pub fn generate_filters(posts: HashMap<PostId, Option<String>>) -> Result<SearchIndex, Error> {
     // Create a dictionary of {"post name": "lowercase word set"}. split_posts =
     // {name: set(re.split("\W+", contents.lower())) for name, contents in
     // posts.items()}

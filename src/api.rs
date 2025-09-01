@@ -11,7 +11,7 @@ use std::convert::From;
 use strip_markdown::strip_markdown;
 use xorf::{HashProxy, Xor8};
 
-use crate::{Filters, PostId, Storage};
+use crate::{PostId, SearchIndex, Storage};
 
 /// Trait that types must implement to be used as posts in tinysearch
 ///
@@ -260,7 +260,7 @@ impl TinySearch {
     /// * `posts` - Vector of posts implementing the [`Post`] trait
     ///
     /// # Returns
-    /// * `Ok(Filters)` - Successfully generated search index
+    /// * `Ok(SearchIndex)` - Successfully generated search index
     /// * `Err(Box<dyn std::error::Error>)` - Index generation error
     ///
     /// # Example
@@ -279,9 +279,12 @@ impl TinySearch {
     /// ];
     ///
     /// let search = TinySearch::new();
-    /// let filters = search.build_index(&posts).unwrap();
+    /// let index = search.build_index(&posts).unwrap();
     /// ```
-    pub fn build_index<P: Post>(&self, posts: &[P]) -> Result<Filters, Box<dyn std::error::Error>> {
+    pub fn build_index<P: Post>(
+        &self,
+        posts: &[P],
+    ) -> Result<SearchIndex, Box<dyn std::error::Error>> {
         let prepared_posts = self.prepare_posts(posts);
         self.generate_filters(prepared_posts)
     }
@@ -293,7 +296,7 @@ impl TinySearch {
     /// higher than body matches to prioritize more relevant results.
     ///
     /// # Arguments
-    /// * `filters` - Pre-built search index from [`build_index`](Self::build_index)
+    /// * `index` - Pre-built search index from [`build_index`](Self::build_index)
     /// * `query` - Search query string
     /// * `num_results` - Maximum number of results to return
     ///
@@ -324,11 +327,11 @@ impl TinySearch {
     /// ```
     pub fn search<'a>(
         &self,
-        filters: &'a Filters,
+        index: &'a SearchIndex,
         query: &str,
         num_results: usize,
     ) -> Vec<&'a PostId> {
-        crate::search(filters, query.to_string(), num_results)
+        crate::search(index, query.to_string(), num_results)
     }
 
     /// Build a search index and serialize it to bytes
@@ -384,7 +387,7 @@ impl TinySearch {
     /// * `bytes` - Serialized index bytes
     ///
     /// # Returns
-    /// * `Ok(Filters)` - Successfully loaded search index
+    /// * `Ok(SearchIndex)` - Successfully loaded search index
     /// * `Err(BincodeError)` - Deserialization error
     ///
     /// # Example
@@ -410,7 +413,7 @@ impl TinySearch {
     /// let index = search.load_index_from_bytes(&index_bytes).unwrap();
     /// let results = search.search(&index, "content", 10);
     /// ```
-    pub fn load_index_from_bytes(&self, bytes: &[u8]) -> Result<Filters, BincodeError> {
+    pub fn load_index_from_bytes(&self, bytes: &[u8]) -> Result<SearchIndex, BincodeError> {
         let storage = Storage::from_bytes(bytes)?;
         Ok(storage.filters)
     }
@@ -452,7 +455,7 @@ impl TinySearch {
     fn generate_filters(
         &self,
         posts: HashMap<PostId, Option<String>>,
-    ) -> Result<Filters, Box<dyn std::error::Error>> {
+    ) -> Result<SearchIndex, Box<dyn std::error::Error>> {
         let stopwords = self.get_stopwords();
 
         let split_posts: HashMap<PostId, Option<HashSet<String>>> = posts
@@ -469,21 +472,22 @@ impl TinySearch {
             .into_iter()
             .map(|(post_id, body)| {
                 // Add title to filter
-                let title: HashSet<String> = self.tokenize_with_stopwords(&post_id.title, &stopwords);
-                
+                let title: HashSet<String> =
+                    self.tokenize_with_stopwords(&post_id.title, &stopwords);
+
                 // Add metadata to filter
                 let metadata: HashSet<String> = if post_id.meta.is_empty() {
                     HashSet::new()
                 } else {
                     self.tokenize_with_stopwords(&post_id.meta, &stopwords)
                 };
-                
+
                 let mut content: HashSet<String> = title;
                 content.extend(metadata);
                 if let Some(body) = body {
                     content.extend(body);
                 }
-                
+
                 let content_vec: Vec<String> = content.into_iter().collect();
                 let filter =
                     HashProxy::<String, std::collections::hash_map::DefaultHasher, Xor8>::from(

@@ -2,16 +2,16 @@ use std::sync::OnceLock;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 
-use tinysearch::{search as base_search, Filters, PostId, Storage};
+use tinysearch::{search as base_search, PostId, SearchIndex, Storage};
 
-static FILTERS: OnceLock<Filters> = OnceLock::new();
+static SEARCH_INDEX: OnceLock<SearchIndex> = OnceLock::new();
 
 pub fn search_local(query: String, num_results: usize) -> Vec<&'static PostId> {
-    let filters = FILTERS.get_or_init(|| {
+    let index = SEARCH_INDEX.get_or_init(|| {
         let bytes = include_bytes!("storage");
         Storage::from_bytes(bytes).unwrap().filters
     });
-    base_search(filters, query, num_results)
+    base_search(index, query, num_results)
 }
 
 /// Export for WASM - search function that takes C strings and returns JSON

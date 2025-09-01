@@ -11,7 +11,7 @@
 //! ## Basic Usage
 //!
 //! ```rust
-//! use tinysearch::{BasicPost, TinySearch};
+//! use tinysearch::{BasicPost, TinySearch, SearchIndex};
 //! use std::collections::HashMap;
 //!
 //! // Create posts
@@ -32,7 +32,7 @@
 //!
 //! // Build search index
 //! let search = TinySearch::new();
-//! let index = search.build_index(&posts).expect("Failed to build index");
+//! let index: SearchIndex = search.build_index(&posts).expect("Failed to build index");
 //!
 //! // Search
 //! let results = search.search(&index, "rust", 10);
@@ -64,8 +64,31 @@ pub struct PostId {
 /// A post with its associated Xor filter for fast lookups
 pub type PostFilter = (PostId, HashProxy<String, DefaultHasher, Xor8>);
 
-/// Collection of all post filters
-pub type Filters = Vec<PostFilter>;
+/// A deserialized search index containing posts and their search filters
+///
+/// This allows users to store and work with search indexes without
+/// needing to import the xorf library directly.
+///
+/// # Example
+///
+/// ```rust
+/// use tinysearch::{BasicPost, TinySearch, SearchIndex};
+/// use std::collections::HashMap;
+///
+/// let posts = vec![
+///     BasicPost {
+///         title: "My Post".to_string(),
+///         url: "/my-post".to_string(),
+///         body: Some("Post content here".to_string()),
+///         meta: HashMap::new(),
+///     }
+/// ];
+///
+/// let search = TinySearch::new();
+/// let index: SearchIndex = search.build_index(&posts).unwrap();
+/// let results = search.search(&index, "content", 10);
+/// ```
+pub type SearchIndex = Vec<PostFilter>;
 
 // Re-export public API types from the API module
 pub use api::{BasicPost, Post, TinySearch};
@@ -165,11 +188,11 @@ impl SearchSchema {
 #[derive(Serialize, Deserialize)]
 pub struct Storage {
     /// Vector of post filters for search functionality
-    pub filters: Filters,
+    pub filters: SearchIndex,
 }
 
-impl From<Filters> for Storage {
-    fn from(filters: Filters) -> Self {
+impl From<SearchIndex> for Storage {
+    fn from(filters: SearchIndex) -> Self {
         Storage { filters }
     }
 }
@@ -197,7 +220,7 @@ impl Storage {
 
     /// Deserializes storage from bytes using bincode
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, BincodeError> {
-        let decoded: Filters = bincode::deserialize(bytes)?;
+        let decoded: SearchIndex = bincode::deserialize(bytes)?;
         Ok(Storage { filters: decoded })
     }
 }
@@ -231,15 +254,15 @@ fn tokenize(s: &str) -> Vec<String> {
 /// Performs a search query against the provided filters
 ///
 /// # Arguments
-/// * `filters` - The search index containing all posts and their filters
+/// * `index` - The search index containing all posts and their filters
 /// * `query` - The search query string
 /// * `num_results` - Maximum number of results to return
 ///
 /// # Returns
 /// Vector of `PostId` references, sorted by relevance score (highest first)
-pub fn search(filters: &'_ Filters, query: String, num_results: usize) -> Vec<&'_ PostId> {
+pub fn search(index: &'_ SearchIndex, query: String, num_results: usize) -> Vec<&'_ PostId> {
     let search_terms: Vec<String> = tokenize(&query);
-    let mut matches: Vec<(&PostId, usize)> = filters
+    let mut matches: Vec<(&PostId, usize)> = index
         .iter()
         .map(|(post_id, filter)| (post_id, score(post_id, &search_terms, filter)))
         .filter(|(_post_id, score)| *score > 0)
