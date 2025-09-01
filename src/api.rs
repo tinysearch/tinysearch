@@ -76,7 +76,7 @@ pub trait Post {
     ///
     /// Metadata is also indexed and searchable, useful for things like author names,
     /// tags, categories, or other structured data you want to be findable.
-    /// Return an empty HashMap if no metadata should be indexed.
+    /// Return an empty `HashMap` if no metadata should be indexed.
     fn meta(&self) -> HashMap<String, String>;
 }
 
@@ -167,7 +167,7 @@ pub struct TinySearch {
 }
 
 impl TinySearch {
-    /// Create a new TinySearch instance with default settings
+    /// Create a new `TinySearch` instance with default settings
     ///
     /// The default configuration uses the built-in English stopwords list.
     ///
@@ -178,7 +178,7 @@ impl TinySearch {
     ///
     /// let search = TinySearch::new();
     /// ```
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             custom_stopwords: None,
         }
@@ -201,6 +201,7 @@ impl TinySearch {
     /// let search = TinySearch::new()
     ///     .with_stopwords(vec!["the".to_string(), "and".to_string(), "or".to_string()]);
     /// ```
+    #[must_use]
     pub fn with_stopwords<I>(mut self, stopwords: I) -> Self
     where
         I: IntoIterator<Item = String>,
@@ -285,8 +286,9 @@ impl TinySearch {
         &self,
         posts: &[P],
     ) -> Result<SearchIndex, Box<dyn std::error::Error>> {
-        let prepared_posts = self.prepare_posts(posts);
-        self.generate_filters(prepared_posts)
+        let prepared_posts = Self::prepare_posts(posts);
+        let stopwords = self.get_stopwords();
+        Ok(Self::generate_filters(prepared_posts, &stopwords))
     }
 
     /// Search using a pre-built index
@@ -325,13 +327,13 @@ impl TinySearch {
     ///     println!("Found: {} at {}", result.title, result.url);
     /// }
     /// ```
-    pub fn search<'a>(
+    pub fn search<'index>(
         &self,
-        index: &'a SearchIndex,
+        index: &'index SearchIndex,
         query: &str,
         num_results: usize,
-    ) -> Vec<&'a PostId> {
-        crate::search(index, query.to_string(), num_results)
+    ) -> Vec<&'index PostId> {
+        crate::search(index, query, num_results)
     }
 
     /// Build a search index and serialize it to bytes
@@ -374,7 +376,7 @@ impl TinySearch {
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let filters = self.build_index(posts)?;
         let storage = Storage::from(filters);
-        storage.to_bytes().map_err(|e| e.into())
+        storage.to_bytes().map_err(std::convert::Into::into)
     }
 
     /// Load a search index from serialized bytes
@@ -438,12 +440,13 @@ impl TinySearch {
 
     /// Remove non-ascii characters from string
     /// Keep apostrophe (e.g. for words like "don't")
-    fn cleanup(&self, s: String) -> String {
+    fn cleanup(s: &str) -> String {
         s.replace(|c: char| !(c.is_alphabetic() || c == '\''), " ")
     }
 
-    fn tokenize_with_stopwords(&self, words: &str, stopwords: &HashSet<String>) -> HashSet<String> {
-        self.cleanup(strip_markdown(words))
+    /// Tokenize input text, removing stopwords and normalizing to lowercase
+    fn tokenize_with_stopwords(words: &str, stopwords: &HashSet<String>) -> HashSet<String> {
+        Self::cleanup(&strip_markdown(words))
             .split_whitespace()
             .filter(|&word| !word.trim().is_empty())
             .map(str::to_lowercase)
@@ -453,33 +456,31 @@ impl TinySearch {
 
     /// Generate filters from prepared posts (internal implementation)
     fn generate_filters(
-        &self,
         posts: HashMap<PostId, Option<String>>,
-    ) -> Result<SearchIndex, Box<dyn std::error::Error>> {
-        let stopwords = self.get_stopwords();
-
+        stopwords: &HashSet<String>,
+    ) -> SearchIndex {
         let split_posts: HashMap<PostId, Option<HashSet<String>>> = posts
             .into_iter()
             .map(|(post, content)| {
                 (
                     post,
-                    content.map(|content| self.tokenize_with_stopwords(&content, &stopwords)),
+                    content.map(|content| Self::tokenize_with_stopwords(&content, stopwords)),
                 )
             })
             .collect();
 
-        let filters = split_posts
+        split_posts
             .into_iter()
             .map(|(post_id, body)| {
                 // Add title to filter
                 let title: HashSet<String> =
-                    self.tokenize_with_stopwords(&post_id.title, &stopwords);
+                    Self::tokenize_with_stopwords(&post_id.title, stopwords);
 
                 // Add metadata to filter
                 let metadata: HashSet<String> = if post_id.meta.is_empty() {
                     HashSet::new()
                 } else {
-                    self.tokenize_with_stopwords(&post_id.meta, &stopwords)
+                    Self::tokenize_with_stopwords(&post_id.meta, stopwords)
                 };
 
                 let mut content: HashSet<String> = title;
@@ -495,12 +496,11 @@ impl TinySearch {
                     );
                 (post_id, filter)
             })
-            .collect();
-        Ok(filters)
+            .collect()
     }
 
     /// Prepare posts for filter generation (internal implementation)
-    fn prepare_posts<P: Post>(&self, posts: &[P]) -> HashMap<PostId, Option<String>> {
+    fn prepare_posts<P: Post>(posts: &[P]) -> HashMap<PostId, Option<String>> {
         posts
             .iter()
             .map(|post| {
@@ -514,7 +514,7 @@ impl TinySearch {
                     url: post.url().to_string(),
                     meta: meta_str,
                 };
-                let body = post.body().map(|s| s.to_string());
+                let body = post.body().map(std::string::ToString::to_string);
                 (post_id, body)
             })
             .collect()

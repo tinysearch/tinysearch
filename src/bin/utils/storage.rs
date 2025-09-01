@@ -52,7 +52,7 @@ pub fn generate_filters(posts: HashMap<PostId, Option<String>>) -> Result<Search
     let split_posts: HashMap<PostId, Option<HashSet<String>>> = posts
         .into_iter()
         .map(|(post, content)| {
-            debug!("Generating {:?}", post);
+            debug!("Generating {post:?}");
             (post, content.map(|content| tokenize(&content, &stopwords)))
         })
         .collect();
@@ -111,7 +111,7 @@ pub fn prepare_posts(posts: Posts, schema: &SearchSchema) -> HashMap<PostId, Opt
                         indexed_content.push(' ');
                     }
                 } else {
-                    debug!("Field '{}' not found in post for indexing", field);
+                    debug!("Field '{field}' not found in post for indexing");
                 }
             }
 
@@ -124,7 +124,7 @@ pub fn prepare_posts(posts: Posts, schema: &SearchSchema) -> HashMap<PostId, Opt
                         metadata_content.push(' ');
                     }
                 } else {
-                    debug!("Field '{}' not found in post for metadata", field);
+                    debug!("Field '{field}' not found in post for metadata");
                 }
             }
 
@@ -205,7 +205,7 @@ mod tests {
         posts.insert(
             PostId {
                 title: "Maybe You Don't Need Kubernetes, Or Excel - You Know".to_string(),
-                url: "".to_string(),
+                url: String::new(),
                 meta: String::new(),
             },
             None, //body

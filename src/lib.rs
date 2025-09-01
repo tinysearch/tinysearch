@@ -117,7 +117,7 @@ pub struct SearchSchema {
 impl Default for SearchSchema {
     /// Default schema configuration matching current JSON structure
     fn default() -> Self {
-        SearchSchema {
+        Self {
             indexed_fields: vec!["title".to_string(), "body".to_string()],
             metadata_fields: vec![],
             url_field: "url".to_string(),
@@ -132,7 +132,7 @@ impl SearchSchema {
         let toml_path = path.as_ref().join("tinysearch.toml");
 
         if !toml_path.exists() {
-            return Ok(SearchSchema::default());
+            return Ok(Self::default());
         }
 
         let toml_content = std::fs::read_to_string(&toml_path)
@@ -193,7 +193,7 @@ pub struct Storage {
 
 impl From<SearchIndex> for Storage {
     fn from(filters: SearchIndex) -> Self {
-        Storage { filters }
+        Self { filters }
     }
 }
 
@@ -221,7 +221,7 @@ impl Storage {
     /// Deserializes storage from bytes using bincode
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, BincodeError> {
         let decoded: SearchIndex = bincode::deserialize(bytes)?;
-        Ok(Storage { filters: decoded })
+        Ok(Self { filters: decoded })
     }
 }
 
@@ -239,7 +239,9 @@ fn score(post_id: &PostId, search_terms: &[String], filter: &Filter) -> usize {
         .iter()
         .filter(|term| title_terms.contains(term))
         .count();
-    TITLE_WEIGHT * title_score + filter.score(search_terms)
+    TITLE_WEIGHT
+        .saturating_mul(title_score)
+        .saturating_add(filter.score(search_terms))
 }
 
 /// Tokenizes a string into lowercase words, removing empty tokens
@@ -260,8 +262,12 @@ fn tokenize(s: &str) -> Vec<String> {
 ///
 /// # Returns
 /// Vector of `PostId` references, sorted by relevance score (highest first)
-pub fn search(index: &'_ SearchIndex, query: String, num_results: usize) -> Vec<&'_ PostId> {
-    let search_terms: Vec<String> = tokenize(&query);
+pub fn search<'index>(
+    index: &'index SearchIndex,
+    query: &str,
+    num_results: usize,
+) -> Vec<&'index PostId> {
+    let search_terms: Vec<String> = tokenize(query);
     let mut matches: Vec<(&PostId, usize)> = index
         .iter()
         .map(|(post_id, filter)| (post_id, score(post_id, &search_terms, filter)))
@@ -275,6 +281,7 @@ pub fn search(index: &'_ SearchIndex, query: String, num_results: usize) -> Vec<
 
 #[cfg(test)]
 #[cfg(feature = "bin")]
+#[allow(clippy::panic, clippy::unwrap_used)]
 mod schema_tests {
     use super::*;
     use tempfile::TempDir;
@@ -286,7 +293,7 @@ mod schema_tests {
         assert_eq!(schema.metadata_fields, Vec::<String>::new());
         assert_eq!(schema.url_field, "url");
         if let Err(e) = schema.validate() {
-            panic!("Default schema validation failed: {}", e);
+            panic!("Default schema validation failed: {e}");
         }
     }
 

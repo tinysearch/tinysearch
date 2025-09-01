@@ -44,8 +44,8 @@ enum DirOrTemp {
 impl DirOrTemp {
     pub fn path(&self) -> PathBuf {
         match self {
-            DirOrTemp::Path(p) => p.clone(),
-            DirOrTemp::Temp(p) => p.path().to_path_buf(),
+            Self::Path(p) => p.clone(),
+            Self::Temp(p) => p.path().to_path_buf(),
         }
     }
 }
@@ -60,7 +60,7 @@ impl FromStr for DirOrTemp {
     type Err = <PathBuf as FromStr>::Err;
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        Ok(DirOrTemp::Path(PathBuf::from_str(s)?))
+        Ok(Self::Path(PathBuf::from_str(s)?))
     }
 }
 
@@ -119,7 +119,7 @@ struct Opt {
     #[argh(positional)]
     input_file: Option<PathBuf>,
 
-    /// output path for WASM module ("wasm_output" directory by default)
+    /// output path for WASM module ("`wasm_output`" directory by default)
     #[argh(
         option,
         short = 'p',
@@ -138,7 +138,7 @@ struct Opt {
 
     /// this version will be used in Cargo.toml for the generated crate
     /// (only used in wasm, crate modes). This should be a valid TOML table definition.
-    /// Default is 'version="env!("CARGO_PKG_VERSION")"'. If you have a local version of
+    /// Default is '`version="env!("CARGO_PKG_VERSION`")"'. If you have a local version of
     /// tinysearch, you can specify 'path="/path/to/tinysearch"'
     #[argh(
         option,
@@ -194,15 +194,15 @@ impl Stage for Search {
             format!("Failed to read input file: {}", self.storage_file.display())
         })?;
         let filters = Storage::from_bytes(&bytes)?.filters;
-        let results = base_search(&filters, self.term.clone(), self.num_searches);
-        results.iter().for_each(|result| {
+        let results = base_search(&filters, &self.term, self.num_searches);
+        for result in &results {
             println!(
                 "Title: {title}, Url: {url}, Meta: {meta}",
                 title = result.title,
                 url = result.url,
                 meta = result.meta
             );
-        });
+        }
         Ok(())
     }
 }
@@ -243,7 +243,7 @@ impl Stage for Storage {
 
         let posts: Posts = index::read(raw_content)
             .with_context(|| format!("Failed to decode {}", self.posts_index.display()))?;
-        trace!("Generating storage from posts: {:#?}", posts);
+        trace!("Generating storage from posts: {posts:#?}");
         storage::write(posts, &storage_file, &self.schema)?;
 
         println!("Storage ready in file {}", storage_file.display());
@@ -333,7 +333,7 @@ impl Wasm {
 
 impl Stage for Wasm {
     fn from_opt(opt: &Opt) -> Result<Self, Error> {
-        let crate_path = Wasm::ensure_crate_path(&opt.crate_path)?;
+        let crate_path = Self::ensure_crate_path(&opt.crate_path)?;
         let crate_opt = {
             let mut ret: Opt = opt.clone();
             ret.out_path = crate_path.path();
@@ -349,7 +349,7 @@ impl Stage for Wasm {
         })
     }
 
-    fn build(self: &Wasm) -> Result<(), Error> {
+    fn build(&self) -> Result<(), Error> {
         self.c.build().context("Failed generating crate")?;
         println!("Compiling WASM module using vanilla cargo build");
         let crate_path = self.crate_path.path();
@@ -406,7 +406,12 @@ impl Stage for Wasm {
             }
         }
 
-        if !self.release {
+        if self.release {
+            println!("Created production-ready WASM module");
+            println!("See docs for usage instructions");
+            println!("Path: {}", dest_wasm.display());
+            println!("Size: {} bytes", dest_wasm.metadata()?.len());
+        } else {
             let html_path = self.out_path.join("demo.html");
             fs::write(
                 &html_path,
@@ -416,11 +421,6 @@ impl Stage for Wasm {
             println!("All done! WASM module at: {}", dest_wasm.display());
             println!("JS loader at: {}", js_path.display());
             println!("Demo at: {}", html_path.display());
-        } else {
-            println!("Created production-ready WASM module");
-            println!("See docs for usage instructions");
-            println!("Path: {}", dest_wasm.display());
-            println!("Size: {} bytes", dest_wasm.metadata()?.len());
         }
         Ok(())
     }
@@ -456,11 +456,11 @@ pub fn main() -> Result<(), Error> {
 }
 
 pub fn run_output(cmd: &mut Command) -> Result<String, Error> {
-    println!("running {:?}", cmd);
+    println!("running {cmd:?}");
     let output = cmd
         .stderr(Stdio::inherit())
         .output()
-        .with_context(|| format!("failed to run {:?}", cmd))?;
+        .with_context(|| format!("failed to run {cmd:?}"))?;
 
     if !output.status.success() {
         anyhow::bail!("failed to execute {:?}\nstatus: {}", cmd, output.status)

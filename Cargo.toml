@@ -58,3 +58,44 @@ bin = [
 
 [dev-dependencies]
 tempfile = "3.14.0"
+
+[lints.clippy]
+# Pedantic lints that help with code quality (lower priority so allows can override)
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+
+# Restriction lints for better code practices  
+dbg_macro = "warn"
+todo = "warn"
+unimplemented = "warn"
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+unreachable = "warn"
+missing_docs_in_private_items = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
+use_debug = "warn"
+
+# Performance lints
+inefficient_to_string = "warn"
+large_enum_variant = "warn"
+trivially_copy_pass_by_ref = "warn"
+
+# Correctness lints (use new name)
+indexing_slicing = "warn"
+arithmetic_side_effects = "warn"
+float_arithmetic = "warn"
+as_conversions = "warn"
+
+# Style lints
+string_add = "warn"
+string_add_assign = "warn"
+single_char_lifetime_names = "warn"
+explicit_deref_methods = "warn"
+
+# Allow some pedantic lints that are too noisy
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+missing_errors_doc = "allow"
+missing_panics_doc = "allow"

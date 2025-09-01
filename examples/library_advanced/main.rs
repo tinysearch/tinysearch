@@ -1,3 +1,7 @@
+//! Advanced library usage example showing custom Post trait implementation
+
+#![allow(clippy::print_stdout, clippy::missing_docs_in_private_items)]
+
 use std::collections::HashMap;
 use tinysearch::{Post, TinySearch};
 
@@ -75,7 +79,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let queries = vec!["rust", "alice", "performance", "wasm"];
 
     for query in queries {
-        println!("Searching for: '{}'", query);
+        println!("Searching for: '{query}'");
         let results = search.search(&index, query, 3);
 
         if results.is_empty() {

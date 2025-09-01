@@ -1,7 +1,12 @@
+//! Example showing how to use the `SearchIndex` type to store and work with
+//! search indexes without needing to import the xorf library directly.
+
+#![allow(clippy::print_stdout, clippy::missing_docs_in_private_items)]
+
 use std::collections::HashMap;
 use tinysearch::{BasicPost, SearchIndex, TinySearch};
 
-/// Example showing how to use the SearchIndex type to store and work with
+/// Example showing how to use the `SearchIndex` type to store and work with
 /// search indexes without needing to import the xorf library directly.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("SearchIndex type example\n");
@@ -21,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             title: "Advanced Rust Concepts".to_string(),
             url: "/rust-advanced".to_string(),
             body: Some("Deep dive into advanced Rust features".to_string()),
-            meta: meta,
+            meta,
         },
     ];
 

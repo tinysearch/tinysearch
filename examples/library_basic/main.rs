@@ -1,3 +1,7 @@
+//! Basic library usage example demonstrating search functionality
+
+#![allow(clippy::print_stdout, clippy::missing_docs_in_private_items)]
+
 use std::collections::HashMap;
 use tinysearch::{BasicPost, TinySearch};
 
@@ -46,7 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Search the index
     let queries = vec!["rust", "wasm", "search", "algorithms"];
     for query in queries {
-        println!("Searching for: '{}'", query);
+        println!("Searching for: '{query}'");
         let results = tinysearch.search(&index, query, 5);
         for result in results {
             println!("  - {}: {}", result.title, result.url);
