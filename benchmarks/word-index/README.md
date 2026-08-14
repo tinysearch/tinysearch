@@ -90,8 +90,8 @@ The selected exact inverted index was measured in a complete generated WASM modu
 | artifact | storage | optimized WASM | gzip -9 | Brotli q11 |
 |---|---:|---:|---:|---:|
 | Xor8 exact words and title prefixes | 38,078 | 129,298 | 72,798 | 65,018 |
-| exact all-field prefixes | 95,676 | 178,938 | 83,079 | 71,891 |
-| difference | +57,598 | +49,640 | +10,281 | +6,873 |
+| exact all-field prefixes | 95,676 | 178,911 | 83,094 | 71,823 |
+| difference | +57,598 | +49,613 | +10,296 | +6,805 |
 
 The complete artifact grows much less than the standalone index component suggests because the new format replaces Xor filters and their query/decoding paths rather than layering another data structure on top.
 
@@ -116,7 +116,7 @@ This corrects the previous table, which accidentally used bincode standard encod
 
 ## Method and caveats
 
-- Tokenization mirrors `src/api.rs`: strip Markdown, retain Unicode alphabetic characters and apostrophes, lowercase, split whitespace, and remove the copied 771-word tinysearch stopword list. The corpus has title and body fields but no metadata.
+- Tokenization mirrors `src/api.rs`: strip Markdown, retain Unicode alphabetic characters and apostrophes, lowercase, split whitespace, and remove the repository's tinysearch stopword list. The corpus has title and body fields but no metadata.
 - The replacement inverted index deliberately includes every exact title/body term, including terms of three characters or fewer, because it replaces exact Xor membership as well as prefix expansion.
 - The discarded Xor-plus-vocabulary experiment had different responsibilities. It contained body/metadata terms absent from the same post's title, then excluded terms with three or fewer characters. The “production-shaped” comparison reproduces those body-minus-title and `>3` rules; there is no metadata in this corpus.
 - Raw vocabulary serialization is one sorted term per line with a final newline. The compact inverted format stores a four-byte magic, varint term count, varint vocabulary-byte length, the raw newline vocabulary, then a varint posting count and delta-coded document IDs for each term. Query offsets are rebuilt while decoding and are not serialized.

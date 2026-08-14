@@ -387,7 +387,7 @@ fn load_corpus(path: &Path) -> Result<Corpus> {
         posts.len()
     );
 
-    let stopwords: HashSet<&str> = include_str!("../stopwords.txt")
+    let stopwords: HashSet<&str> = include_str!("../../../assets/stopwords")
         .split_whitespace()
         .collect();
     let mut global = BTreeSet::new();
@@ -1053,7 +1053,7 @@ fn print_report(report: Report<'_>) {
 
     println!("\n## Method notes\n");
     println!(
-        "- Index tokenization mirrors `src/api.rs`: strip Markdown, retain Unicode alphabetic characters and apostrophes, lowercase, split whitespace, and remove the copied tinysearch stopword list."
+        "- Index tokenization mirrors `src/api.rs`: strip Markdown, retain Unicode alphabetic characters and apostrophes, lowercase, split whitespace, and remove the repository's tinysearch stopword list."
     );
     println!(
         "- The inverted indexes map every exact title/body term to sorted document IDs. They do not model PostId storage, title weighting, multi-term scoring, or final result ranking."
@@ -1062,7 +1062,7 @@ fn print_report(report: Report<'_>) {
         "- Uncapped inverted-prefix queries union postings from every matching vocabulary term and therefore have exact set semantics. Cap32 uses only the first 32 lexicographic completions and can omit documents reached only by later completions."
     );
     println!(
-        "- Production handles title prefixes by scanning tokenized PostId titles directly. Its global vocabulary contains body/metadata terms not present in that document's title and only terms longer than three characters. Queries shorter than three characters get no prefix expansion, but exact Xor/title checks still run."
+        "- The shipped exact index scans normalized titles directly and stores body/metadata terms in exact posting lists. Query terms shorter than three characters require exact matches."
     );
     println!(
         "- The benchmark's full vocabulary deliberately includes title terms and all lengths because the inverted index also replaces exact Xor membership. The production-shaped baseline reproduces the discarded Xor-plus-vocabulary experiment's body-minus-title and >3-character rules; this corpus has no metadata."

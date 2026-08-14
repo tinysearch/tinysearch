@@ -270,7 +270,7 @@ impl SearchSchema {
 /// Storage container for a serialized search index.
 #[derive(Serialize, Deserialize)]
 pub struct Storage {
-    /// Search index data.
+    /// Search index data. The field name is retained for source compatibility.
     pub filters: SearchIndex,
 }
 
@@ -307,8 +307,8 @@ impl std::error::Error for StorageError {
 }
 
 impl From<SearchIndex> for Storage {
-    fn from(filters: SearchIndex) -> Self {
-        Self { filters }
+    fn from(index: SearchIndex) -> Self {
+        Self { filters: index }
     }
 }
 
@@ -663,13 +663,14 @@ fn search_exact<'index>(
         .map(|post| tokenize(&post.title))
         .collect();
     let mut scores = vec![0_usize; index.posts.len()];
+    let mut content_matches = vec![false; index.posts.len()];
 
     for search_term in search_terms {
         for (score, terms) in scores.iter_mut().zip(&title_terms) {
             *score = score.saturating_add(title_term_score(terms, search_term));
         }
 
-        let mut content_matches = vec![false; index.posts.len()];
+        content_matches.fill(false);
         let start = index
             .terms
             .partition_point(|term| term.as_str() < search_term.as_str());
@@ -690,7 +691,7 @@ fn search_exact<'index>(
                 }
             }
         }
-        for (score, content_match) in scores.iter_mut().zip(content_matches) {
+        for (score, &content_match) in scores.iter_mut().zip(&content_matches) {
             *score = score.saturating_add(usize::from(content_match));
         }
     }

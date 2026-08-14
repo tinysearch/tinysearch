@@ -184,12 +184,12 @@ mod tests {
                 url: String::new(),
                 meta: String::new(),
             },
-            None, //body
+            Some("Observability requires instrumentation".to_string()),
         );
         let index = generate_index(posts);
         assert_eq!(index.len(), 1);
         assert!(tinysearch::search(&index, "foo", 5).is_empty());
-        assert_eq!(tinysearch::search(&index, "kube", 5).len(), 1);
+        assert_eq!(tinysearch::search(&index, "obser", 5).len(), 1);
         assert_eq!(tinysearch::search(&index, "excel", 5).len(), 1);
     }
 
