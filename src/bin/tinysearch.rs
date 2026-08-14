@@ -15,7 +15,7 @@ use std::process::{Command, Stdio};
 use std::str::FromStr;
 use std::{env, fs};
 use tempfile::TempDir;
-use tinysearch::SearchSchema;
+use tinysearch::{IndexKind, SearchSchema};
 use toml_edit::{DocumentMut, value};
 
 use index::Posts;
@@ -97,6 +97,10 @@ struct Opt {
     /// output mode
     #[argh(option, short = 'm', long = "mode", default = "OutputMode::Wasm")]
     output_mode: OutputMode,
+
+    /// index backend used when creating storage (exact or xor8)
+    #[argh(option, long = "indexer", default = "IndexKind::Exact")]
+    index_kind: IndexKind,
 
     /// term to search in posts (only for search mode)
     #[argh(
@@ -206,6 +210,7 @@ struct Storage {
     posts_index: PathBuf,
     out_path: PathBuf,
     schema: SearchSchema,
+    index_kind: IndexKind,
 }
 
 impl Stage for Storage {
@@ -221,6 +226,7 @@ impl Stage for Storage {
             posts_index,
             out_path: ensure_exists(&opt.out_path)?,
             schema,
+            index_kind: opt.index_kind,
         })
     }
 
@@ -238,7 +244,7 @@ impl Stage for Storage {
         let posts: Posts = index::read(&raw_content)
             .with_context(|| format!("Failed to decode {}", self.posts_index.display()))?;
         trace!("Generating storage from posts: {posts:#?}");
-        storage::write(posts, &storage_file, &self.schema)?;
+        storage::write(posts, &storage_file, &self.schema, self.index_kind)?;
 
         println!("Storage ready in file {}", storage_file.display());
         Ok(())

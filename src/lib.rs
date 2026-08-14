@@ -43,7 +43,7 @@ pub mod api;
 use serde::{Deserialize, Serialize};
 use std::cmp::Reverse;
 use std::collections::hash_map::DefaultHasher;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::convert::From;
 use xorf::{Filter as XorfFilter, HashProxy, Xor8};
 
@@ -61,13 +61,13 @@ pub struct PostId {
     pub meta: String,
 }
 
-/// A legacy post entry with its associated Xor filter.
+/// A post entry with its associated Xor8 filter.
 pub type PostFilter = (PostId, HashProxy<String, DefaultHasher, Xor8>);
 
-/// A search index containing posts and exact term-to-document postings.
+/// A search index containing either exact postings or per-post Xor8 filters.
 ///
-/// Terms are sorted so exact and prefix lookups can use a binary-search lower
-/// bound. Each posting list contains the documents that use that term.
+/// Exact indexes use sorted terms for binary-search prefix lookup. Xor8 indexes
+/// retain the compact probabilistic representation used by earlier releases.
 ///
 /// # Example
 ///
@@ -96,7 +96,8 @@ pub struct SearchIndex {
 #[derive(Serialize, Deserialize)]
 enum SearchIndexData {
     Exact(ExactIndex),
-    Legacy(Vec<PostFilter>),
+    #[serde(alias = "Legacy")]
+    Xor8(Vec<PostFilter>),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -104,6 +105,88 @@ struct ExactIndex {
     posts: Vec<PostId>,
     terms: Vec<String>,
     postings: Vec<Vec<usize>>,
+}
+
+/// A post and all of its normalized title, body, and metadata terms.
+pub type IndexedDocument = (PostId, HashSet<String>);
+
+/// Common interface for building a supported index representation.
+pub trait IndexBackend {
+    /// Builds an index from normalized documents.
+    fn build(&self, documents: Vec<IndexedDocument>) -> SearchIndex;
+}
+
+/// Exact inverted-index backend.
+///
+/// [`Storage::to_bytes`] delta- and varint-encodes its posting lists.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ExactIndexBackend;
+
+/// Xor8 backend with compact probabilistic per-document filters.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Xor8IndexBackend;
+
+/// Built-in index backend selection.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum IndexKind {
+    /// Exact body, metadata, and title prefix matching.
+    #[default]
+    Exact,
+    /// Probabilistic Xor8 membership with exact body and metadata matching.
+    Xor8,
+}
+
+impl IndexKind {
+    /// Returns the selected built-in backend.
+    pub fn backend(self) -> &'static dyn IndexBackend {
+        static EXACT: ExactIndexBackend = ExactIndexBackend;
+        static XOR8: Xor8IndexBackend = Xor8IndexBackend;
+
+        match self {
+            Self::Exact => &EXACT,
+            Self::Xor8 => &XOR8,
+        }
+    }
+}
+
+impl std::str::FromStr for IndexKind {
+    type Err = String;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        match value {
+            "exact" => Ok(Self::Exact),
+            "xor" | "xor8" => Ok(Self::Xor8),
+            _ => Err(format!("unknown indexer {value:?}; expected exact or xor8")),
+        }
+    }
+}
+
+impl std::fmt::Display for IndexKind {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Exact => formatter.write_str("exact"),
+            Self::Xor8 => formatter.write_str("xor8"),
+        }
+    }
+}
+
+impl IndexBackend for ExactIndexBackend {
+    fn build(&self, documents: Vec<IndexedDocument>) -> SearchIndex {
+        SearchIndex::from_documents(documents)
+    }
+}
+
+impl IndexBackend for Xor8IndexBackend {
+    fn build(&self, documents: Vec<IndexedDocument>) -> SearchIndex {
+        let filters: Vec<PostFilter> = documents
+            .into_iter()
+            .map(|(post, terms)| {
+                let terms: Vec<String> = terms.into_iter().collect();
+                (post, HashProxy::from(&terms))
+            })
+            .collect();
+        SearchIndex::from(filters)
+    }
 }
 
 impl SearchIndex {
@@ -143,7 +226,7 @@ impl SearchIndex {
     pub fn len(&self) -> usize {
         match &self.data {
             SearchIndexData::Exact(index) => index.posts.len(),
-            SearchIndexData::Legacy(filters) => filters.len(),
+            SearchIndexData::Xor8(filters) => filters.len(),
         }
     }
 
@@ -156,7 +239,7 @@ impl SearchIndex {
 impl From<Vec<PostFilter>> for SearchIndex {
     fn from(filters: Vec<PostFilter>) -> Self {
         Self {
-            data: SearchIndexData::Legacy(filters),
+            data: SearchIndexData::Xor8(filters),
         }
     }
 }
@@ -169,7 +252,7 @@ impl FromIterator<PostFilter> for SearchIndex {
 
 impl Default for SearchIndex {
     fn default() -> Self {
-        Self::from(Vec::new())
+        ExactIndexBackend.build(Vec::new())
     }
 }
 
@@ -320,13 +403,13 @@ impl From<Vec<PostFilter>> for Storage {
     }
 }
 
-/// Trait for scoring search terms against a legacy filter.
+/// Trait for scoring search terms against an Xor8 filter.
 pub trait Score {
     /// Returns the number of search terms that match this filter
     fn score(&self, terms: &[String]) -> usize;
 }
 
-/// Scores a legacy Xor filter by the number of contained query terms.
+/// Scores an Xor8 filter by the number of contained query terms.
 impl Score for HashProxy<String, DefaultHasher, Xor8> {
     fn score(&self, terms: &[String]) -> usize {
         terms.iter().filter(|term| self.contains(term)).count()
@@ -334,19 +417,19 @@ impl Score for HashProxy<String, DefaultHasher, Xor8> {
 }
 
 impl Storage {
-    /// Serializes exact indexes with compact delta postings and preserves the
-    /// historical bincode format for legacy Xor-filter indexes.
+    /// Serializes exact indexes with compact delta postings and uses the
+    /// historical bincode format for Xor8 indexes.
     pub fn to_bytes(&self) -> Result<Vec<u8>, StorageError> {
         match &self.filters.data {
             SearchIndexData::Exact(index) => encode_exact_index(index),
-            SearchIndexData::Legacy(filters) => {
+            SearchIndexData::Xor8(filters) => {
                 bincode::serde::encode_to_vec(filters, bincode::config::legacy())
                     .map_err(StorageError::Encode)
             }
         }
     }
 
-    /// Deserializes current exact indexes and legacy Xor-filter indexes.
+    /// Deserializes exact and Xor8 indexes.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, StorageError> {
         if bytes.starts_with(STORAGE_MAGIC) {
             return decode_exact_index(bytes).map(|index| Self {
@@ -562,7 +645,7 @@ mod storage_tests {
         let bytes = include_bytes!("testdata/legacy-storage-v0.10.bin");
         let storage = Storage::from_bytes(bytes)?;
         assert_eq!(storage.filters.len(), 1);
-        let SearchIndexData::Legacy(filters) = &storage.filters.data else {
+        let SearchIndexData::Xor8(filters) = &storage.filters.data else {
             return Err(StorageError::InvalidData(
                 "legacy fixture decoded as an exact index",
             ));
@@ -699,7 +782,7 @@ fn search_exact<'index>(
     ranked_posts(&index.posts, scores, num_results)
 }
 
-fn search_legacy<'index>(
+fn search_xor8<'index>(
     filters: &'index [PostFilter],
     search_terms: &[String],
     num_results: usize,
@@ -752,10 +835,10 @@ fn tokenize(text: &str) -> Vec<String> {
 ///
 /// Query terms of at least three characters support prefix matching in titles,
 /// body text, and metadata for exact indexes. Shorter terms require exact
-/// matches. Legacy Xor-filter indexes keep exact body and metadata matching.
+/// matches. Xor8 indexes keep exact body and metadata matching.
 ///
 /// # Arguments
-/// * `index` - The search index containing posts and exact term postings
+/// * `index` - The search index built by an exact or Xor8 backend
 /// * `query` - The search query string
 /// * `num_results` - Maximum number of results to return
 ///
@@ -769,7 +852,7 @@ pub fn search<'index>(
     let search_terms: Vec<String> = tokenize(query);
     match &index.data {
         SearchIndexData::Exact(index) => search_exact(index, &search_terms, num_results),
-        SearchIndexData::Legacy(filters) => search_legacy(filters, &search_terms, num_results),
+        SearchIndexData::Xor8(filters) => search_xor8(filters, &search_terms, num_results),
     }
 }
 
@@ -787,6 +870,34 @@ mod search_tests {
             },
             indexed_terms.iter().map(ToString::to_string).collect(),
         )
+    }
+
+    #[test]
+    fn built_in_index_backends_are_selectable() {
+        let post = PostId {
+            title: "Other title".to_string(),
+            url: "/other".to_string(),
+            meta: String::new(),
+        };
+        let terms = HashSet::from(["programming".to_string()]);
+
+        let exact = IndexKind::Exact
+            .backend()
+            .build(vec![(post.clone(), terms.clone())]);
+        assert!(matches!(&exact.data, SearchIndexData::Exact(_)));
+        assert_eq!(search(&exact, "prog", 5).len(), 1);
+
+        let xor8 = IndexKind::Xor8.backend().build(vec![(post, terms)]);
+        assert!(matches!(&xor8.data, SearchIndexData::Xor8(_)));
+        assert_eq!(search(&xor8, "programming", 5).len(), 1);
+
+        assert_eq!("exact".parse(), Ok(IndexKind::Exact));
+        assert_eq!("xor8".parse(), Ok(IndexKind::Xor8));
+        assert_eq!(IndexKind::default(), IndexKind::Exact);
+        assert!(matches!(
+            SearchIndex::default().data,
+            SearchIndexData::Exact(_)
+        ));
     }
 
     #[test]

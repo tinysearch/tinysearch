@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 use std::convert::From;
 use strip_markdown::strip_markdown;
 
-use crate::{PostId, SearchIndex, Storage, StorageError};
+use crate::{IndexBackend, IndexKind, IndexedDocument, PostId, SearchIndex, Storage, StorageError};
 
 /// Trait that types must implement to be used as posts in tinysearch
 ///
@@ -160,14 +160,17 @@ impl Post for BasicPost {
 /// ```
 #[derive(Debug, Clone)]
 pub struct TinySearch {
-    /// Custom stopwords to use instead of built-in ones
+    /// Custom stopwords to use instead of built-in ones.
     custom_stopwords: Option<HashSet<String>>,
+    /// Built-in index backend used by [`build_index`](Self::build_index).
+    index_kind: IndexKind,
 }
 
 impl TinySearch {
     /// Create a new `TinySearch` instance with default settings
     ///
-    /// The default configuration uses the built-in English stopwords list.
+    /// The default configuration uses the built-in English stopwords list and
+    /// the exact inverted-index backend.
     ///
     /// # Example
     ///
@@ -179,6 +182,7 @@ impl TinySearch {
     pub const fn new() -> Self {
         Self {
             custom_stopwords: None,
+            index_kind: IndexKind::Exact,
         }
     }
 
@@ -205,6 +209,23 @@ impl TinySearch {
         I: IntoIterator<Item = String>,
     {
         self.custom_stopwords = Some(stopwords.into_iter().collect());
+        self
+    }
+
+    /// Select the built-in index backend.
+    ///
+    /// Exact indexing is the default. [`IndexKind::Xor8`] produces the smaller
+    /// historical filter format, with probabilistic membership and exact-word
+    /// body and metadata matching.
+    ///
+    /// ```rust
+    /// use tinysearch::{IndexKind, TinySearch};
+    ///
+    /// let search = TinySearch::new().with_index_kind(IndexKind::Xor8);
+    /// ```
+    #[must_use]
+    pub const fn with_index_kind(mut self, index_kind: IndexKind) -> Self {
+        self.index_kind = index_kind;
         self
     }
 
@@ -246,15 +267,15 @@ impl TinySearch {
 
     /// Build a search index from a collection of posts
     ///
-    /// This method takes posts implementing the [`Post`] trait and generates the
-    /// exact inverted index needed for fast search. It handles tokenization and
-    /// stop word removal.
+    /// This method takes posts implementing the [`Post`] trait and generates an
+    /// index with the selected backend. It handles tokenization and stop word
+    /// removal.
     ///
     /// The process involves:
     /// 1. Extracting text content from each post (title, body, meta)
     /// 2. Tokenizing and cleaning the text (lowercase, remove punctuation)
     /// 3. Filtering out stopwords
-    /// 4. Creating compact term-to-document posting lists
+    /// 4. Building the selected exact or Xor8 representation
     ///
     /// # Arguments
     /// * `posts` - Vector of posts implementing the [`Post`] trait
@@ -285,9 +306,19 @@ impl TinySearch {
         &self,
         posts: &[P],
     ) -> Result<SearchIndex, Box<dyn std::error::Error>> {
+        self.build_index_with(posts, self.index_kind.backend())
+    }
+
+    /// Build an index using a custom backend.
+    pub fn build_index_with<P: Post>(
+        &self,
+        posts: &[P],
+        backend: &dyn IndexBackend,
+    ) -> Result<SearchIndex, Box<dyn std::error::Error>> {
         let prepared_posts = Self::prepare_posts(posts);
         let stopwords = self.get_stopwords();
-        Ok(Self::generate_index(prepared_posts, &stopwords))
+        let documents = Self::prepare_documents(prepared_posts, &stopwords);
+        Ok(backend.build(documents))
     }
 
     /// Search using a pre-built index
@@ -295,8 +326,8 @@ impl TinySearch {
     /// This method performs a search query against a pre-built search index,
     /// returning results sorted by relevance score. Exact title matches rank
     /// above prefix matches. Prefix matching in titles, body text, and metadata
-    /// starts at three characters for newly built indexes. Legacy Xor-filter
-    /// indexes retain exact-word body and metadata matching.
+    /// starts at three characters for exact indexes. Xor8 indexes retain
+    /// exact-word body and metadata matching.
     ///
     /// # Arguments
     /// * `index` - Pre-built search index from [`build_index`](Self::build_index)
@@ -339,9 +370,8 @@ impl TinySearch {
 
     /// Build a search index and serialize it to bytes
     ///
-    /// This is a convenience method that combines index building and serialization
-    /// for easy storage to files or databases. The serialized format uses bincode
-    /// for efficient binary encoding.
+    /// This is a convenience method that combines index building and compact
+    /// serialization for easy storage to files or databases.
     ///
     /// # Arguments
     /// * `posts` - Vector of posts implementing the [`Post`] trait
@@ -455,11 +485,11 @@ impl TinySearch {
             .collect()
     }
 
-    /// Generate an exact inverted index from prepared posts.
-    fn generate_index(
+    /// Tokenize prepared posts for an index backend.
+    fn prepare_documents(
         posts: HashMap<PostId, Option<String>>,
         stopwords: &HashSet<String>,
-    ) -> SearchIndex {
+    ) -> Vec<IndexedDocument> {
         let split_posts: HashMap<PostId, Option<HashSet<String>>> = posts
             .into_iter()
             .map(|(post, content)| {
@@ -470,18 +500,19 @@ impl TinySearch {
             })
             .collect();
 
-        let documents = split_posts.into_iter().map(|(post_id, body)| {
-            let mut content = if post_id.meta.is_empty() {
-                HashSet::new()
-            } else {
-                Self::tokenize_with_stopwords(&post_id.meta, stopwords)
-            };
-            if let Some(body) = body {
-                content.extend(body);
-            }
-            (post_id, content)
-        });
-        SearchIndex::from_documents(documents)
+        split_posts
+            .into_iter()
+            .map(|(post_id, body)| {
+                let mut content = Self::tokenize_with_stopwords(&post_id.title, stopwords);
+                if !post_id.meta.is_empty() {
+                    content.extend(Self::tokenize_with_stopwords(&post_id.meta, stopwords));
+                }
+                if let Some(body) = body {
+                    content.extend(body);
+                }
+                (post_id, content)
+            })
+            .collect()
     }
 
     /// Prepare posts for index generation (internal implementation)
@@ -504,5 +535,82 @@ impl TinySearch {
                 (post_id, body)
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::RefCell;
+
+    use super::*;
+    use crate::{ExactIndexBackend, IndexBackend, IndexKind, Storage};
+
+    #[derive(Default)]
+    struct RecordingBackend {
+        documents: RefCell<Vec<IndexedDocument>>,
+    }
+
+    impl IndexBackend for RecordingBackend {
+        fn build(&self, documents: Vec<IndexedDocument>) -> SearchIndex {
+            self.documents.replace(documents.clone());
+            ExactIndexBackend.build(documents)
+        }
+    }
+
+    fn post() -> BasicPost {
+        BasicPost {
+            title: "Rust Guide".to_string(),
+            url: "/rust".to_string(),
+            body: Some("Observability details".to_string()),
+            meta: HashMap::from([("author".to_string(), "Ferris Crab".to_string())]),
+        }
+    }
+
+    #[test]
+    fn builds_with_both_builtin_backends() -> Result<(), Box<dyn std::error::Error>> {
+        let posts = [post()];
+        let exact = TinySearch::new().build_index(&posts)?;
+        assert_eq!(TinySearch::new().search(&exact, "rus", 5).len(), 1);
+        assert_eq!(TinySearch::new().search(&exact, "obser", 5).len(), 1);
+        assert_eq!(TinySearch::new().search(&exact, "ferr", 5).len(), 1);
+
+        let xor_search = TinySearch::new().with_index_kind(IndexKind::Xor8);
+        let xor8 = xor_search.build_index(&posts)?;
+        assert_eq!(xor_search.search(&xor8, "rus", 5).len(), 1);
+        assert_eq!(xor_search.search(&xor8, "observability", 5).len(), 1);
+        assert_eq!(xor_search.search(&xor8, "ferris", 5).len(), 1);
+
+        let named_json = serde_json::to_string(&xor8)?;
+        let legacy_json = named_json.replace("\"Xor8\"", "\"Legacy\"");
+        let aliased: SearchIndex = serde_json::from_str(&legacy_json)?;
+        assert_eq!(xor_search.search(&aliased, "observability", 5).len(), 1);
+
+        let bytes = Storage::from(xor8).to_bytes()?;
+        let round_tripped = Storage::from_bytes(&bytes)?.filters;
+        assert_eq!(
+            xor_search.search(&round_tripped, "observability", 5).len(),
+            1
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn custom_backend_receives_all_normalized_terms() -> Result<(), Box<dyn std::error::Error>> {
+        let backend = RecordingBackend::default();
+        TinySearch::new().build_index_with(&[post()], &backend)?;
+
+        let documents = backend.documents.borrow();
+        let (_post, terms) = &documents[0];
+        for term in [
+            "rust",
+            "guide",
+            "observability",
+            "details",
+            "ferris",
+            "crab",
+        ] {
+            assert!(terms.contains(term), "missing normalized term {term:?}");
+        }
+        Ok(())
     }
 }

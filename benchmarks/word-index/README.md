@@ -85,13 +85,14 @@ Against the production-shaped Xor+vocabulary component, the compact exact index 
 
 ### Generated WASM comparison
 
-The selected exact inverted index was measured in a complete generated WASM module against `origin/master`. Both artifacts use the same 73-post corpus and `wasm-opt --enable-bulk-memory -Oz`.
+Both current indexers were measured in complete generated WASM modules against `origin/master`. All artifacts use the same 73-post corpus and `wasm-opt --enable-bulk-memory -Oz`.
 
 | artifact | storage | optimized WASM | gzip -9 | Brotli q11 |
 |---|---:|---:|---:|---:|
-| Xor8 exact words and title prefixes | 38,078 | 129,298 | 72,798 | 65,018 |
-| exact all-field prefixes | 95,676 | 178,911 | 83,094 | 71,823 |
-| difference | +57,598 | +49,613 | +10,296 | +6,805 |
+| `origin/master` Xor8 | 38,078 | 129,298 | 72,798 | 65,018 |
+| current `--indexer xor8` | 38,078 | 136,309 | 75,155 | 66,942 |
+| current default exact | 95,676 | 178,911 | 83,003 | 71,798 |
+| exact vs current Xor8 | +57,598 | +42,602 | +7,848 | +4,856 |
 
 The complete artifact grows much less than the standalone index component suggests because the new format replaces Xor filters and their query/decoding paths rather than layering another data structure on top.
 

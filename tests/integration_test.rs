@@ -121,6 +121,30 @@ fn test_cli_storage_mode() {
     // Check that storage file was created
     let storage_path = temp_dir.path().join("storage");
     assert!(storage_path.exists(), "Storage file should be created");
+
+    let xor_dir = temp_dir.path().join("xor8");
+    let xor_output = Command::new("cargo")
+        .args([
+            "run",
+            "--features=bin",
+            "--",
+            "-m",
+            "storage",
+            "--indexer",
+            "xor8",
+            "-p",
+            xor_dir.to_str().unwrap(),
+            "fixtures/index.json",
+        ])
+        .output()
+        .expect("Failed to build Xor8 storage");
+    assert!(xor_output.status.success());
+
+    let xor_bytes = std::fs::read(xor_dir.join("storage")).expect("Failed to read Xor8 storage");
+    let xor_index = tinysearch::Storage::from_bytes(&xor_bytes)
+        .expect("Failed to decode Xor8 storage")
+        .filters;
+    assert!(!tinysearch::search(&xor_index, "decades", 5).is_empty());
 }
 
 #[test]

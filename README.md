@@ -32,17 +32,20 @@ It can be seen as an alternative to [lunr.js](https://lunrjs.com/) and
 [elasticlunr](http://elasticlunr.com/), which are too heavy for smaller websites
 and load a lot of JavaScript.
 
-Under the hood, tinysearch stores one sorted vocabulary with exact posting
-lists that map each word to the articles containing it. Document IDs are delta-
-and varint-encoded, which keeps the index compact and compressible. Exact and
-prefix searches use the same index and do not introduce probabilistic false
-positives. Previously generated Xor-filter indexes remain readable and retain
-their original exact-word body search behavior.
+By default, tinysearch stores one sorted vocabulary with exact posting lists
+that map each word to the articles containing it. Document IDs are delta- and
+varint-encoded, which keeps the index compact and compressible. Exact and prefix
+searches use the same index and do not introduce probabilistic false positives.
+
+The optional `xor8` indexer creates smaller probabilistic per-article filters.
+It supports title prefixes, but body and metadata searches require complete
+words. Previously generated Xor-filter indexes use this same path.
 
 ## Limitations
 
-- Prefix matching starts once a query term reaches three characters. Shorter
-  terms require an exact match.
+- With the default exact indexer, prefix matching starts once a query term
+  reaches three characters. Shorter terms require an exact match.
+- The `xor8` indexer only supports prefixes in titles.
 - Since we bundle all search indices for all articles into one static binary, we
   recommend to only use it for small- to medium-size websites. Expect around 2
   kB uncompressed per article (~1 kb compressed).
@@ -100,6 +103,9 @@ tinysearch --release -m wasm -p wasm_output fixtures/index.json
 
 # With optimization (requires wasm-opt from binaryen)
 tinysearch --release -o -m wasm -p wasm_output fixtures/index.json
+
+# Use the smaller Xor8 index format instead of the default exact index
+tinysearch --indexer xor8 -m wasm -p wasm_output fixtures/index.json
 ```
 
 This creates a dependency-free WASM module using vanilla `cargo build` instead of `wasm-pack`.
@@ -197,6 +203,10 @@ let search = TinySearch::new();
 let index = search.build_index(&posts)?;
 let results = search.search(&index, "content", 10);
 ```
+
+Select `TinySearch::new().with_index_kind(IndexKind::Xor8)` to build the
+probabilistic Xor8 representation. Both built-in indexers implement
+`IndexBackend`.
 
 For advanced usage including custom post types and configuration, see:
 - [Basic library example](examples/library_basic/)
