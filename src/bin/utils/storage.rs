@@ -6,22 +6,26 @@ use std::path;
 use super::assets::STOP_WORDS;
 use super::index::Posts;
 use strip_markdown::strip_markdown;
-use tinysearch::{PostId, SearchIndex, SearchSchema, Storage};
-use xorf::HashProxy;
+use tinysearch::{IndexKind, IndexedDocument, PostId, SearchIndex, SearchSchema, Storage};
 
-pub fn write(posts: Posts, path: &path::PathBuf, schema: &SearchSchema) -> Result<(), Error> {
-    let filters = build(posts, schema);
+pub fn write(
+    posts: Posts,
+    path: &path::PathBuf,
+    schema: &SearchSchema,
+    index_kind: IndexKind,
+) -> Result<(), Error> {
+    let index = build(posts, schema, index_kind);
     trace!("Storage::from");
-    let storage = Storage::from(filters);
+    let storage = Storage::from(index);
     trace!("Write");
     fs::write(path, storage.to_bytes()?)?;
     trace!("ok");
     Ok(())
 }
 
-fn build(posts: Posts, schema: &SearchSchema) -> SearchIndex {
+fn build(posts: Posts, schema: &SearchSchema, index_kind: IndexKind) -> SearchIndex {
     let posts = prepare_posts(posts, schema);
-    generate_filters(posts)
+    generate_index(posts, index_kind)
 }
 
 /// Remove non-ascii characters from string
@@ -39,12 +43,12 @@ fn tokenize(words: &str, stopwords: &HashSet<String>) -> HashSet<String> {
         .collect()
 }
 
-// Read all posts and generate Bloomfilters from them.
-pub fn generate_filters(posts: HashMap<PostId, Option<String>>) -> SearchIndex {
-    // Create a dictionary of {"post name": "lowercase word set"}. split_posts =
-    // {name: set(re.split("\W+", contents.lower())) for name, contents in
-    // posts.items()}
-    debug!("Generate filters");
+// Read all posts and generate the selected index representation.
+pub fn generate_index(
+    posts: HashMap<PostId, Option<String>>,
+    index_kind: IndexKind,
+) -> SearchIndex {
+    debug!("Generate index");
 
     let stopwords: HashSet<String> = STOP_WORDS.split_whitespace().map(String::from).collect();
 
@@ -56,36 +60,21 @@ pub fn generate_filters(posts: HashMap<PostId, Option<String>>) -> SearchIndex {
         })
         .collect();
 
-    // At this point, we have a dictionary of posts and a normalized set of
-    // words in each. We could do more things, like stemming, removing common
-    // words (a, the, etc), but we're going for naive, so let's just create the
-    // filters for now:
-    let filters = split_posts
+    let documents: Vec<IndexedDocument> = split_posts
         .into_iter()
         .map(|(post_id, body)| {
-            // Add title to filter
-            let title: HashSet<String> = tokenize(&post_id.title, &stopwords);
-
-            // Add metadata to filter
-            let metadata: HashSet<String> = if post_id.meta.is_empty() {
-                HashSet::new()
-            } else {
-                tokenize(&post_id.meta, &stopwords)
-            };
-
-            let mut content: HashSet<String> = title;
-            content.extend(metadata);
+            let mut content = tokenize(&post_id.title, &stopwords);
+            if !post_id.meta.is_empty() {
+                content.extend(tokenize(&post_id.meta, &stopwords));
+            }
             if let Some(body) = body {
                 content.extend(body);
             }
-
-            let content_vec: Vec<String> = content.into_iter().collect();
-            let filter = HashProxy::from(&content_vec);
-            (post_id, filter)
+            IndexedDocument::new(post_id, content)
         })
         .collect();
     trace!("Done");
-    filters
+    index_kind.backend().build(documents)
 }
 
 // prepares posts with arbitrary field mappings based on schema
@@ -194,12 +183,10 @@ fn extract_string_value(value: &serde_json::Value) -> String {
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod tests {
-    use xorf::Filter;
-
     use super::*;
 
     #[test]
-    fn test_generate_filters() {
+    fn test_generate_indexes() {
         let mut posts = HashMap::new();
         posts.insert(
             PostId {
@@ -207,27 +194,17 @@ mod tests {
                 url: String::new(),
                 meta: String::new(),
             },
-            None, //body
+            Some("Observability requires instrumentation".to_string()),
         );
-        let filters = generate_filters(posts);
-        assert_eq!(filters.len(), 1);
-        let (_post_id, filter) = filters.first().unwrap();
+        let exact = generate_index(posts.clone(), IndexKind::Exact);
+        assert_eq!(exact.len(), 1);
+        assert!(tinysearch::search(&exact, "foo", 5).is_empty());
+        assert_eq!(tinysearch::search(&exact, "obser", 5).len(), 1);
+        assert_eq!(tinysearch::search(&exact, "excel", 5).len(), 1);
 
-        assert!(!filter.contains(&" ".to_owned()));
-        assert!(!filter.contains(&"    ".to_owned()));
-        assert!(!filter.contains(&"foo".to_owned()));
-        assert!(!filter.contains(&"-".to_owned()));
-        assert!(!filter.contains(&",".to_owned()));
-        assert!(!filter.contains(&"'".to_owned()));
-
-        // "you", "don't", and "need" get stripped out because they are stopwords
-        assert!(!filter.contains(&"you".to_owned()));
-        assert!(!filter.contains(&"don't".to_owned()));
-        assert!(!filter.contains(&"need".to_owned()));
-
-        assert!(filter.contains(&"maybe".to_owned()));
-        assert!(filter.contains(&"kubernetes".to_owned()));
-        assert!(filter.contains(&"excel".to_owned()));
+        let xor8 = generate_index(posts, IndexKind::Xor8);
+        assert_eq!(xor8.len(), 1);
+        assert_eq!(tinysearch::search(&xor8, "observability", 5).len(), 1);
     }
 
     #[test]

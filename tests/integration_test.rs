@@ -1,3 +1,5 @@
+//! End-to-end tests for the tinysearch command-line interface.
+
 #![allow(
     clippy::expect_used,
     clippy::unwrap_used,
@@ -90,6 +92,11 @@ fn test_cli_wasm_mode() {
 
     assert!(has_wasm, "No .wasm file was generated");
     assert!(has_js, "No .js file was generated");
+
+    let demo = std::fs::read_to_string(temp_dir.path().join("demo.html"))
+        .expect("Failed to read generated demo");
+    assert!(demo.contains("addEventListener('input', performSearch)"));
+    assert!(demo.contains("Results update as you type"));
 }
 
 #[test]
@@ -121,6 +128,30 @@ fn test_cli_storage_mode() {
     // Check that storage file was created
     let storage_path = temp_dir.path().join("storage");
     assert!(storage_path.exists(), "Storage file should be created");
+
+    let xor_dir = temp_dir.path().join("xor8");
+    let xor_output = Command::new("cargo")
+        .args([
+            "run",
+            "--features=bin",
+            "--",
+            "-m",
+            "storage",
+            "--indexer",
+            "xor8",
+            "-p",
+            xor_dir.to_str().unwrap(),
+            "fixtures/index.json",
+        ])
+        .output()
+        .expect("Failed to build Xor8 storage");
+    assert!(xor_output.status.success());
+
+    let xor_bytes = std::fs::read(xor_dir.join("storage")).expect("Failed to read Xor8 storage");
+    let xor_index = tinysearch::Storage::from_bytes(&xor_bytes)
+        .expect("Failed to decode Xor8 storage")
+        .filters;
+    assert!(!tinysearch::search(&xor_index, "decades", 5).is_empty());
 }
 
 #[test]
@@ -301,7 +332,7 @@ url_field = "product_url"
             "-m",
             "search",
             "-S",
-            "wireless",
+            "waterp",
             "-N",
             "1",
             storage_path.to_str().unwrap(),
@@ -316,11 +347,11 @@ url_field = "product_url"
 
     let search_stdout = String::from_utf8_lossy(&search_output.stdout);
     assert!(
-        search_stdout.contains("Wireless Headphones"),
-        "Should find the wireless headphones product"
+        search_stdout.contains("Bluetooth Speaker"),
+        "Should find a body-only prefix match"
     );
     assert!(
-        search_stdout.contains("https://store.example.com/headphones"),
+        search_stdout.contains("https://store.example.com/speaker"),
         "Should contain the product URL"
     );
 }

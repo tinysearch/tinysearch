@@ -19,9 +19,9 @@ It can be used together with static site generators such as
 
 ## Is it tiny?
 
-The test index file of my blog with around 40 posts creates a WASM payload of
-99kB (49kB gzipped, 40kB brotli).\
-That is smaller than the demo image above; so yes.
+The current endler.dev index with 73 posts creates an optimized WASM payload of
+179 kB (83 kB gzipped, 72 kB Brotli-compressed). That is smaller than the demo
+image above; so yes.
 
 ## How it works
 
@@ -32,18 +32,20 @@ It can be seen as an alternative to [lunr.js](https://lunrjs.com/) and
 [elasticlunr](http://elasticlunr.com/), which are too heavy for smaller websites
 and load a lot of JavaScript.
 
-Under the hood it uses a [Xor Filter](https://arxiv.org/abs/1912.08258) &mdash;
-a datastructure for fast approximation of set membership that is smaller than
-bloom and cuckoo filters. Each blog post gets converted into a filter that will
-then be serialized to a binary blob using
-[bincode](https://github.com/bincode-org/bincode). Please note that the
-underlying technologies are subject to change.
+By default, tinysearch stores one sorted vocabulary with exact posting lists
+that map each word to the articles containing it. Document IDs are delta- and
+varint-encoded, which keeps the index compact and compressible. Exact and prefix
+searches use the same index and do not introduce probabilistic false positives.
+
+The optional `xor8` indexer creates smaller probabilistic per-article filters.
+It supports title prefixes, but body and metadata searches require complete
+words. Previously generated Xor-filter indexes use this same path.
 
 ## Limitations
 
-- Body and metadata searches only find entire words. Title words support prefix
-  matching once the query term reaches three characters. This provides useful
-  type-ahead feedback without increasing the index size.
+- With the default exact indexer, prefix matching starts once a query term
+  reaches three characters. Shorter terms require an exact match.
+- The `xor8` indexer only supports prefixes in titles.
 - Since we bundle all search indices for all articles into one static binary, we
   recommend to only use it for small- to medium-size websites. Expect around 2
   kB uncompressed per article (~1 kb compressed).
@@ -81,7 +83,7 @@ You can customize which fields are indexed and which are stored as metadata usin
 # Fields that will be indexed for full-text search
 indexed_fields = ["title", "body", "description"]
 
-# Fields that will be stored as metadata but not indexed
+# Fields returned as metadata and included in search
 metadata_fields = ["author", "date", "category", "image_url"]
 
 # Field that contains the URL for each document
@@ -101,6 +103,9 @@ tinysearch --release -m wasm -p wasm_output fixtures/index.json
 
 # With optimization (requires wasm-opt from binaryen)
 tinysearch --release -o -m wasm -p wasm_output fixtures/index.json
+
+# Use the smaller Xor8 index format instead of the default exact index
+tinysearch --indexer xor8 -m wasm -p wasm_output fixtures/index.json
 ```
 
 This creates a dependency-free WASM module using vanilla `cargo build` instead of `wasm-pack`.
@@ -198,6 +203,10 @@ let search = TinySearch::new();
 let index = search.build_index(&posts)?;
 let results = search.search(&index, "content", 10);
 ```
+
+Select `TinySearch::new().with_index_kind(IndexKind::Xor8)` to build the
+probabilistic Xor8 representation. Both built-in indexers implement
+`IndexBackend`.
 
 For advanced usage including custom post types and configuration, see:
 - [Basic library example](examples/library_basic/)

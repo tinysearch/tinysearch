@@ -1,3 +1,5 @@
+//! Command-line interface for building and querying tinysearch indexes.
+
 #![cfg(feature = "bin")]
 #[macro_use]
 extern crate log;
@@ -8,14 +10,14 @@ use utils::index;
 use utils::storage;
 
 use anyhow::{Context, bail};
-pub use anyhow::{Error, Result};
+use anyhow::{Error, Result};
 use argh::FromArgs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::str::FromStr;
 use std::{env, fs};
 use tempfile::TempDir;
-use tinysearch::SearchSchema;
+use tinysearch::{IndexKind, SearchSchema};
 use toml_edit::{DocumentMut, value};
 
 use index::Posts;
@@ -35,7 +37,7 @@ enum DirOrTemp {
 }
 
 impl DirOrTemp {
-    pub fn path(&self) -> PathBuf {
+    fn path(&self) -> PathBuf {
         match self {
             Self::Path(p) => p.clone(),
             Self::Temp(p) => p.path().to_path_buf(),
@@ -97,6 +99,10 @@ struct Opt {
     /// output mode
     #[argh(option, short = 'm', long = "mode", default = "OutputMode::Wasm")]
     output_mode: OutputMode,
+
+    /// index backend used when creating storage (exact or xor8)
+    #[argh(option, long = "indexer", default = "IndexKind::Exact")]
+    index_kind: IndexKind,
 
     /// term to search in posts (only for search mode)
     #[argh(
@@ -206,6 +212,7 @@ struct Storage {
     posts_index: PathBuf,
     out_path: PathBuf,
     schema: SearchSchema,
+    index_kind: IndexKind,
 }
 
 impl Stage for Storage {
@@ -221,6 +228,7 @@ impl Stage for Storage {
             posts_index,
             out_path: ensure_exists(&opt.out_path)?,
             schema,
+            index_kind: opt.index_kind,
         })
     }
 
@@ -238,7 +246,7 @@ impl Stage for Storage {
         let posts: Posts = index::read(&raw_content)
             .with_context(|| format!("Failed to decode {}", self.posts_index.display()))?;
         trace!("Generating storage from posts: {posts:#?}");
-        storage::write(posts, &storage_file, &self.schema)?;
+        storage::write(posts, &storage_file, &self.schema, self.index_kind)?;
 
         println!("Storage ready in file {}", storage_file.display());
         Ok(())
@@ -384,6 +392,7 @@ impl Stage for Wasm {
             if run_output(
                 Command::new("wasm-opt")
                     .current_dir(&self.out_path)
+                    .arg("--enable-bulk-memory")
                     .arg("-Oz")
                     .arg("-o")
                     .arg(&wasm_file)
@@ -393,7 +402,7 @@ impl Stage for Wasm {
             {
                 println!("Optimized WASM with wasm-opt");
             } else {
-                println!("wasm-opt not available, skipping optimization");
+                println!("wasm-opt unavailable or failed, skipping optimization");
             }
         }
 
@@ -417,7 +426,13 @@ impl Stage for Wasm {
     }
 }
 
-pub fn main() -> Result<(), Error> {
+/// Runs tinysearch using command-line arguments.
+///
+/// # Errors
+///
+/// Returns an error if the selected mode cannot parse its inputs or complete
+/// its build operation.
+fn main() -> Result<(), Error> {
     let opt: Opt = argh::from_env();
 
     if opt.version {
@@ -446,7 +461,12 @@ pub fn main() -> Result<(), Error> {
     })
 }
 
-pub fn run_output(cmd: &mut Command) -> Result<String, Error> {
+/// Runs a child process and returns its standard output.
+///
+/// # Errors
+///
+/// Returns an error if the process cannot be started or exits unsuccessfully.
+fn run_output(cmd: &mut Command) -> Result<String, Error> {
     println!("running {cmd:?}");
     let output = cmd
         .stderr(Stdio::inherit())
