@@ -6,10 +6,9 @@ edition = "2021"
 
 [dependencies]
 console_error_panic_hook = "0.1"
-wasm-bindgen = "0.2"
 ybc = "0.2"
 yew = "0.18"
-once_cell = "*"
+once_cell = "1.21"
 tinysearch = { path = "../.." }
 
 [workspace]

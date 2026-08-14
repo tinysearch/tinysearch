@@ -2,29 +2,29 @@
 
 use console_error_panic_hook::set_once as set_panic_hook;
 use once_cell::sync::Lazy;
-use ybc::TileCtx::{Child, Parent};
+use tinysearch::{search, SearchIndex, Storage};
 use ybc::InputType::Text;
+use ybc::TileCtx::{Child, Parent};
 use yew::prelude::*;
-use tinysearch::{Filters, Storage,search};
 
-struct App{
+struct App {
     value: String,
     posts: Vec<String>,
-    link: ComponentLink<App>
+    link: ComponentLink<App>,
 }
 
 enum Msg {
-    SearchChanged(String)
+    SearchChanged(String),
 }
 
-static FILTERS: Lazy<Filters> = Lazy::new(|| {
+static FILTERS: Lazy<SearchIndex> = Lazy::new(|| {
     let bytes = include_bytes!("storage");
     Storage::from_bytes(bytes).unwrap().filters
 });
 
-impl App{
-    fn render_post(s: &String) -> yew::Html{
-        html!{
+impl App {
+    fn render_post(s: &String) -> yew::Html {
+        html! {
             <ybc::Tile ctx=Parent>
                 <ybc::Tile ctx=Child classes=classes!("notification", "is-success")>
                     <ybc::Subtitle size=ybc::HeaderSize::Is3 classes=classes!("has-text-white")>{s.clone()}</ybc::Subtitle>
@@ -39,22 +39,22 @@ impl Component for App {
     type Properties = ();
 
     fn create(_: Self::Properties, link: ComponentLink<Self>) -> Self {
-        Self{
+        Self {
             value: String::default(),
             posts: Vec::new(),
-            link: link
+            link: link,
         }
     }
 
     fn update(&mut self, msg: Self::Message) -> bool {
         match msg {
             Msg::SearchChanged(s) => {
-                if s != self.value{
+                if s != self.value {
                     self.value = s;
-                    let posts = search(&FILTERS, self.value.clone(), 5);
-                    self.posts = posts.iter().map(|x|x.0.clone()).collect();
+                    let posts = search(&FILTERS, &self.value, 5);
+                    self.posts = posts.iter().map(|post| post.title.clone()).collect();
                     true
-                }else{
+                } else {
                     false
                 }
             }
@@ -80,7 +80,7 @@ impl Component for App {
                 navend=html!{
                     <>
                     <ybc::NavbarItem>
-                        <ybc::Input 
+                        <ybc::Input
                             name="as" value={self.value.clone()}
                             update=self.link.callback(|s:String| Msg::SearchChanged(s))
                             r#type=Text ></ybc::Input>
@@ -88,7 +88,7 @@ impl Component for App {
                     </>
                 }
             />
-            
+
 
             <ybc::Hero
                 classes=classes!("is-light")

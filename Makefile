@@ -1,13 +1,14 @@
-# Needed SHELL since I'm using zsh
+# Use Bash for recipes that rely on shell conditionals and pipelines.
 SHELL := /bin/bash
 
 # Default target
 .DEFAULT_GOAL := help
 
 # PHONY targets
-.PHONY: help clean build build-release build-docker docker install test test-unit test-integration
-.PHONY: lint fmt check audit run example demo deps update
-.PHONY: ci-check ci-test ci-build ci-lint ci-fmt ci-audit
+.PHONY: help clean build build-release build-docker docker install
+.PHONY: test test-unit test-integration test-wasm lint fmt fmt-check check audit
+.PHONY: run release example demo deps update ci-check ci-test ci-build ci-lint ci-fmt ci-audit
+.PHONY: dev-setup check-wasm-target dev-watch dev-clean-deps bench profile
 
 help: ## Display this help message
 	@echo "Available targets:"
@@ -106,7 +107,7 @@ ci-audit: audit ## Run audit for CI
 # Development targets
 dev-setup: ## Set up development environment
 	rustup component add clippy rustfmt
-	cargo install cargo-audit cargo-machete
+	cargo install --locked cargo-audit cargo-machete cargo-watch
 	@echo "Installing WASM target for builds..."
 	rustup target add wasm32-unknown-unknown
 

@@ -10,7 +10,7 @@ use tinysearch::{PostId, SearchIndex, SearchSchema, Storage};
 use xorf::HashProxy;
 
 pub fn write(posts: Posts, path: &path::PathBuf, schema: &SearchSchema) -> Result<(), Error> {
-    let filters = build(posts, schema)?;
+    let filters = build(posts, schema);
     trace!("Storage::from");
     let storage = Storage::from(filters);
     trace!("Write");
@@ -19,19 +19,19 @@ pub fn write(posts: Posts, path: &path::PathBuf, schema: &SearchSchema) -> Resul
     Ok(())
 }
 
-fn build(posts: Posts, schema: &SearchSchema) -> Result<SearchIndex, Error> {
+fn build(posts: Posts, schema: &SearchSchema) -> SearchIndex {
     let posts = prepare_posts(posts, schema);
     generate_filters(posts)
 }
 
 /// Remove non-ascii characters from string
 /// Keep apostrophe (e.g. for words like "don't")
-fn cleanup(s: String) -> String {
+fn cleanup(s: &str) -> String {
     s.replace(|c: char| !(c.is_alphabetic() || c == '\''), " ")
 }
 
 fn tokenize(words: &str, stopwords: &HashSet<String>) -> HashSet<String> {
-    cleanup(strip_markdown(words))
+    cleanup(&strip_markdown(words))
         .split_whitespace()
         .filter(|&word| !word.trim().is_empty())
         .map(str::to_lowercase)
@@ -40,8 +40,7 @@ fn tokenize(words: &str, stopwords: &HashSet<String>) -> HashSet<String> {
 }
 
 // Read all posts and generate Bloomfilters from them.
-#[unsafe(no_mangle)]
-pub fn generate_filters(posts: HashMap<PostId, Option<String>>) -> Result<SearchIndex, Error> {
+pub fn generate_filters(posts: HashMap<PostId, Option<String>>) -> SearchIndex {
     // Create a dictionary of {"post name": "lowercase word set"}. split_posts =
     // {name: set(re.split("\W+", contents.lower())) for name, contents in
     // posts.items()}
@@ -86,7 +85,7 @@ pub fn generate_filters(posts: HashMap<PostId, Option<String>>) -> Result<Search
         })
         .collect();
     trace!("Done");
-    Ok(filters)
+    filters
 }
 
 // prepares posts with arbitrary field mappings based on schema
@@ -129,23 +128,22 @@ pub fn prepare_posts(posts: Posts, schema: &SearchSchema) -> HashMap<PostId, Opt
             }
 
             // Handle URL field
-            let url_value = if let Some(value) = post.fields.get(&schema.url_field) {
-                extract_string_value(value)
-            } else {
-                debug!(
-                    "URL field '{}' not found in post, using empty string",
-                    schema.url_field
-                );
-                String::new()
-            };
+            let url_value = post.fields.get(&schema.url_field).map_or_else(
+                || {
+                    debug!(
+                        "URL field '{}' not found in post, using empty string",
+                        schema.url_field
+                    );
+                    String::new()
+                },
+                extract_string_value,
+            );
 
             // Extract title for PostId - use first indexed field as title or URL field as fallback
             let title = if let Some(title_field) = schema.indexed_fields.first() {
-                if let Some(value) = post.fields.get(title_field) {
-                    extract_string_value(value)
-                } else {
-                    url_value.clone()
-                }
+                post.fields
+                    .get(title_field)
+                    .map_or_else(|| url_value.clone(), extract_string_value)
             } else {
                 url_value.clone()
             };
@@ -194,6 +192,7 @@ fn extract_string_value(value: &serde_json::Value) -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use xorf::Filter;
 
@@ -210,7 +209,7 @@ mod tests {
             },
             None, //body
         );
-        let filters = generate_filters(posts).unwrap();
+        let filters = generate_filters(posts);
         assert_eq!(filters.len(), 1);
         let (_post_id, filter) = filters.first().unwrap();
 
