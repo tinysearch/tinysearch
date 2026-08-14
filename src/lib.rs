@@ -61,8 +61,17 @@ pub struct PostId {
     pub meta: String,
 }
 
-/// A post entry with its associated Xor8 filter.
-pub type PostFilter = (PostId, HashProxy<String, DefaultHasher, Xor8>);
+/// Type of the probabilistic filter used by the Xor8 backend.
+pub type Filter = HashProxy<String, DefaultHasher, Xor8>;
+
+/// A post and its associated Xor8 filter.
+#[derive(Serialize, Deserialize)]
+pub struct PostFilter {
+    /// Indexed post metadata.
+    pub post: PostId,
+    /// Probabilistic filter containing the post's normalized terms.
+    pub filter: Filter,
+}
 
 /// A search index containing either exact postings or per-post Xor8 filters.
 ///
@@ -107,7 +116,26 @@ struct ExactIndex {
 }
 
 /// A post and all of its normalized title, body, and metadata terms.
-pub type IndexedDocument = (PostId, HashSet<String>);
+#[derive(Debug, Clone)]
+pub struct IndexedDocument {
+    /// Indexed post metadata.
+    pub post: PostId,
+    /// Normalized searchable terms from the title, body, and metadata.
+    pub terms: HashSet<String>,
+}
+
+impl IndexedDocument {
+    /// Creates a document from post metadata and normalized terms.
+    pub fn new<T>(post: PostId, terms: T) -> Self
+    where
+        T: IntoIterator<Item = String>,
+    {
+        Self {
+            post,
+            terms: terms.into_iter().collect(),
+        }
+    }
+}
 
 /// Common interface for building a supported index representation.
 pub trait IndexBackend {
@@ -179,9 +207,12 @@ impl IndexBackend for Xor8IndexBackend {
     fn build(&self, documents: Vec<IndexedDocument>) -> SearchIndex {
         let filters: Vec<PostFilter> = documents
             .into_iter()
-            .map(|(post, terms)| {
-                let terms: Vec<String> = terms.into_iter().collect();
-                (post, HashProxy::from(&terms))
+            .map(|document| {
+                let terms: Vec<String> = document.terms.into_iter().collect();
+                PostFilter {
+                    post: document.post,
+                    filter: HashProxy::from(&terms),
+                }
             })
             .collect();
         SearchIndex::from(filters)
@@ -193,14 +224,14 @@ impl SearchIndex {
     ///
     /// Terms already present in the normalized title are omitted from postings
     /// because titles are scored directly with a higher weight.
-    pub fn from_documents<I, T>(documents: I) -> Self
+    pub fn from_documents<I>(documents: I) -> Self
     where
-        I: IntoIterator<Item = (PostId, T)>,
-        T: IntoIterator<Item = String>,
+        I: IntoIterator<Item = IndexedDocument>,
     {
         let mut posts = Vec::new();
         let mut postings = BTreeMap::<String, Vec<usize>>::new();
-        for (document, (post, terms)) in documents.into_iter().enumerate() {
+        for (document_id, document) in documents.into_iter().enumerate() {
+            let IndexedDocument { post, terms } = document;
             let title_terms: BTreeSet<String> = tokenize(&post.title).into_iter().collect();
             let terms: BTreeSet<String> = terms
                 .into_iter()
@@ -208,7 +239,7 @@ impl SearchIndex {
                 .collect();
             posts.push(post);
             for term in terms {
-                postings.entry(term).or_default().push(document);
+                postings.entry(term).or_default().push(document_id);
             }
         }
         let (terms, postings) = postings.into_iter().unzip();
@@ -630,8 +661,8 @@ fn read_varint(input: &[u8], cursor: &mut usize) -> Result<usize, StorageError> 
 #[allow(clippy::unwrap_used)]
 mod storage_tests {
     use super::{
-        PostId, STORAGE_MAGIC, SearchIndex, SearchIndexData, Storage, StorageError, search,
-        write_varint,
+        IndexedDocument, PostId, STORAGE_MAGIC, SearchIndex, SearchIndexData, Storage,
+        StorageError, search, write_varint,
     };
     use xorf::Filter;
 
@@ -647,16 +678,21 @@ mod storage_tests {
     fn reads_index_written_by_bincode_one_and_xorf_0_11() -> Result<(), StorageError> {
         let bytes = include_bytes!("testdata/xor8-storage-v0.10.bin");
         let storage = Storage::from_bytes(bytes)?;
+        assert_eq!(storage.to_bytes()?, bytes);
         assert_eq!(storage.filters.len(), 1);
         let SearchIndexData::Xor8(filters) = &storage.filters.data else {
             return Err(StorageError::InvalidData(
                 "v0.10 Xor8 fixture decoded as an exact index",
             ));
         };
-        let (post, filter) = &filters[0];
-        assert!(!post.title.is_empty());
-        assert!(!post.url.is_empty());
-        assert!(filter.contains(&post.url.trim_start_matches('/').to_owned()));
+        let entry = &filters[0];
+        assert!(!entry.post.title.is_empty());
+        assert!(!entry.post.url.is_empty());
+        assert!(
+            entry
+                .filter
+                .contains(&entry.post.url.trim_start_matches('/').to_owned())
+        );
         Ok(())
     }
 
@@ -667,7 +703,7 @@ mod storage_tests {
             url: "/other".to_string(),
             meta: String::new(),
         };
-        let index = SearchIndex::from_documents([(
+        let index = SearchIndex::from_documents([IndexedDocument::new(
             post,
             ["programming".to_string(), "program".to_string()],
         )]);
@@ -704,9 +740,6 @@ mod storage_tests {
         Ok(())
     }
 }
-
-/// Type alias for the filter used in search
-pub type Filter = HashProxy<String, DefaultHasher, Xor8>;
 
 /// Prefix for the compact exact inverted-index storage format.
 const STORAGE_MAGIC: &[u8] = b"tinysearch\x02";
@@ -792,12 +825,15 @@ fn search_xor8<'index>(
 ) -> Vec<&'index PostId> {
     let mut matches: Vec<(&PostId, usize)> = filters
         .iter()
-        .map(|(post, filter)| {
-            let title_terms = tokenize(&post.title);
+        .map(|entry| {
+            let title_terms = tokenize(&entry.post.title);
             let title_score = search_terms.iter().fold(0_usize, |score, term| {
                 score.saturating_add(title_term_score(&title_terms, term))
             });
-            (post, title_score.saturating_add(filter.score(search_terms)))
+            (
+                &entry.post,
+                title_score.saturating_add(entry.filter.score(search_terms)),
+            )
         })
         .filter(|(_post, score)| *score > 0)
         .collect();
@@ -864,14 +900,14 @@ pub fn search<'index>(
 mod search_tests {
     use super::*;
 
-    fn document(title: &str, indexed_terms: &[&str]) -> (PostId, Vec<String>) {
-        (
+    fn document(title: &str, indexed_terms: &[&str]) -> IndexedDocument {
+        IndexedDocument::new(
             PostId {
                 title: title.to_string(),
                 url: format!("/{title}"),
                 meta: String::new(),
             },
-            indexed_terms.iter().map(ToString::to_string).collect(),
+            indexed_terms.iter().map(ToString::to_string),
         )
     }
 
@@ -882,15 +918,13 @@ mod search_tests {
             url: "/other".to_string(),
             meta: String::new(),
         };
-        let terms = HashSet::from(["programming".to_string()]);
+        let document = IndexedDocument::new(post, ["programming".to_string()]);
 
-        let exact = IndexKind::Exact
-            .backend()
-            .build(vec![(post.clone(), terms.clone())]);
+        let exact = IndexKind::Exact.backend().build(vec![document.clone()]);
         assert!(matches!(&exact.data, SearchIndexData::Exact(_)));
         assert_eq!(search(&exact, "prog", 5).len(), 1);
 
-        let xor8 = IndexKind::Xor8.backend().build(vec![(post, terms)]);
+        let xor8 = IndexKind::Xor8.backend().build(vec![document]);
         assert!(matches!(&xor8.data, SearchIndexData::Xor8(_)));
         assert_eq!(search(&xor8, "programming", 5).len(), 1);
 

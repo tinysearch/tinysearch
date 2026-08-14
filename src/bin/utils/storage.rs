@@ -70,7 +70,7 @@ pub fn generate_index(
             if let Some(body) = body {
                 content.extend(body);
             }
-            (post_id, content)
+            IndexedDocument::new(post_id, content)
         })
         .collect();
     trace!("Done");

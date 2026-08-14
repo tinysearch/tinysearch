@@ -499,7 +499,7 @@ impl TinySearch {
                 if let Some(body) = body {
                     content.extend(body);
                 }
-                (post_id, content)
+                IndexedDocument::new(post_id, content)
             })
             .collect()
     }
@@ -584,7 +584,7 @@ mod tests {
         TinySearch::new().build_index_with(&[post()], &backend)?;
 
         let documents = backend.documents.borrow();
-        let (_post, terms) = &documents[0];
+        let document = &documents[0];
         for term in [
             "rust",
             "guide",
@@ -593,7 +593,10 @@ mod tests {
             "ferris",
             "crab",
         ] {
-            assert!(terms.contains(term), "missing normalized term {term:?}");
+            assert!(
+                document.terms.contains(term),
+                "missing normalized term {term:?}"
+            );
         }
         Ok(())
     }
