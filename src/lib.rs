@@ -105,7 +105,7 @@ pub struct SearchIndex {
 #[derive(Serialize, Deserialize)]
 enum SearchIndexData {
     Exact(ExactIndex),
-    Xor8(Vec<PostFilter>),
+    Xor8(Xor8Index),
 }
 
 #[derive(Serialize, Deserialize)]
@@ -113,6 +113,12 @@ struct ExactIndex {
     posts: Vec<PostId>,
     terms: Vec<String>,
     postings: Vec<Vec<usize>>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(transparent)]
+struct Xor8Index {
+    entries: Vec<PostFilter>,
 }
 
 /// A post and all of its normalized title, body, and metadata terms.
@@ -197,37 +203,11 @@ impl std::fmt::Display for IndexKind {
     }
 }
 
-impl IndexBackend for ExactIndexBackend {
-    fn build(&self, documents: Vec<IndexedDocument>) -> SearchIndex {
-        SearchIndex::from_documents(documents)
-    }
-}
-
-impl IndexBackend for Xor8IndexBackend {
-    fn build(&self, documents: Vec<IndexedDocument>) -> SearchIndex {
-        let filters: Vec<PostFilter> = documents
-            .into_iter()
-            .map(|document| {
-                let terms: Vec<String> = document.terms.into_iter().collect();
-                PostFilter {
-                    post: document.post,
-                    filter: HashProxy::from(&terms),
-                }
-            })
-            .collect();
-        SearchIndex::from(filters)
-    }
-}
-
-impl SearchIndex {
-    /// Builds an exact inverted index from posts and their normalized terms.
+impl ExactIndex {
+    /// Builds exact term-to-document postings from normalized documents.
     ///
-    /// Terms already present in the normalized title are omitted from postings
-    /// because titles are scored directly with a higher weight.
-    pub fn from_documents<I>(documents: I) -> Self
-    where
-        I: IntoIterator<Item = IndexedDocument>,
-    {
+    /// Title terms are omitted from postings because titles are scored directly.
+    fn from_documents(documents: Vec<IndexedDocument>) -> Self {
         let mut posts = Vec::new();
         let mut postings = BTreeMap::<String, Vec<usize>>::new();
         for (document_id, document) in documents.into_iter().enumerate() {
@@ -244,19 +224,52 @@ impl SearchIndex {
         }
         let (terms, postings) = postings.into_iter().unzip();
         Self {
-            data: SearchIndexData::Exact(ExactIndex {
-                posts,
-                terms,
-                postings,
-            }),
+            posts,
+            terms,
+            postings,
         }
     }
+}
 
+impl Xor8Index {
+    /// Builds per-document Xor8 filters from all normalized document terms.
+    fn from_documents(documents: Vec<IndexedDocument>) -> Self {
+        let entries = documents
+            .into_iter()
+            .map(|document| {
+                let terms: Vec<String> = document.terms.into_iter().collect();
+                PostFilter {
+                    post: document.post,
+                    filter: HashProxy::from(&terms),
+                }
+            })
+            .collect();
+        Self { entries }
+    }
+}
+
+impl IndexBackend for ExactIndexBackend {
+    fn build(&self, documents: Vec<IndexedDocument>) -> SearchIndex {
+        SearchIndex {
+            data: SearchIndexData::Exact(ExactIndex::from_documents(documents)),
+        }
+    }
+}
+
+impl IndexBackend for Xor8IndexBackend {
+    fn build(&self, documents: Vec<IndexedDocument>) -> SearchIndex {
+        SearchIndex {
+            data: SearchIndexData::Xor8(Xor8Index::from_documents(documents)),
+        }
+    }
+}
+
+impl SearchIndex {
     /// Returns the number of indexed posts.
     pub fn len(&self) -> usize {
         match &self.data {
             SearchIndexData::Exact(index) => index.posts.len(),
-            SearchIndexData::Xor8(filters) => filters.len(),
+            SearchIndexData::Xor8(index) => index.entries.len(),
         }
     }
 
@@ -269,7 +282,7 @@ impl SearchIndex {
 impl From<Vec<PostFilter>> for SearchIndex {
     fn from(filters: Vec<PostFilter>) -> Self {
         Self {
-            data: SearchIndexData::Xor8(filters),
+            data: SearchIndexData::Xor8(Xor8Index { entries: filters }),
         }
     }
 }
@@ -449,8 +462,8 @@ impl Score for HashProxy<String, DefaultHasher, Xor8> {
 pub(crate) fn encode_search_index(index: &SearchIndex) -> Result<Vec<u8>, StorageError> {
     match &index.data {
         SearchIndexData::Exact(index) => encode_exact_index(index),
-        SearchIndexData::Xor8(filters) => {
-            bincode::serde::encode_to_vec(filters, bincode::config::legacy())
+        SearchIndexData::Xor8(index) => {
+            bincode::serde::encode_to_vec(&index.entries, bincode::config::legacy())
                 .map_err(StorageError::Encode)
         }
     }
@@ -661,8 +674,8 @@ fn read_varint(input: &[u8], cursor: &mut usize) -> Result<usize, StorageError> 
 #[allow(clippy::unwrap_used)]
 mod storage_tests {
     use super::{
-        IndexedDocument, PostId, STORAGE_MAGIC, SearchIndex, SearchIndexData, Storage,
-        StorageError, search, write_varint,
+        ExactIndexBackend, IndexBackend, IndexedDocument, PostId, STORAGE_MAGIC, SearchIndexData,
+        Storage, StorageError, search, write_varint,
     };
     use xorf::Filter;
 
@@ -680,12 +693,12 @@ mod storage_tests {
         let storage = Storage::from_bytes(bytes)?;
         assert_eq!(storage.to_bytes()?, bytes);
         assert_eq!(storage.filters.len(), 1);
-        let SearchIndexData::Xor8(filters) = &storage.filters.data else {
+        let SearchIndexData::Xor8(index) = &storage.filters.data else {
             return Err(StorageError::InvalidData(
                 "v0.10 Xor8 fixture decoded as an exact index",
             ));
         };
-        let entry = &filters[0];
+        let entry = &index.entries[0];
         assert!(!entry.post.title.is_empty());
         assert!(!entry.post.url.is_empty());
         assert!(
@@ -703,7 +716,7 @@ mod storage_tests {
             url: "/other".to_string(),
             meta: String::new(),
         };
-        let index = SearchIndex::from_documents([IndexedDocument::new(
+        let index = ExactIndexBackend.build(vec![IndexedDocument::new(
             post,
             ["programming".to_string(), "program".to_string()],
         )]);
@@ -819,11 +832,12 @@ fn search_exact<'index>(
 }
 
 fn search_xor8<'index>(
-    filters: &'index [PostFilter],
+    index: &'index Xor8Index,
     search_terms: &[String],
     num_results: usize,
 ) -> Vec<&'index PostId> {
-    let mut matches: Vec<(&PostId, usize)> = filters
+    let mut matches: Vec<(&PostId, usize)> = index
+        .entries
         .iter()
         .map(|entry| {
             let title_terms = tokenize(&entry.post.title);
@@ -891,7 +905,7 @@ pub fn search<'index>(
     let search_terms: Vec<String> = tokenize(query);
     match &index.data {
         SearchIndexData::Exact(index) => search_exact(index, &search_terms, num_results),
-        SearchIndexData::Xor8(filters) => search_xor8(filters, &search_terms, num_results),
+        SearchIndexData::Xor8(index) => search_xor8(index, &search_terms, num_results),
     }
 }
 
@@ -909,6 +923,10 @@ mod search_tests {
             },
             indexed_terms.iter().map(ToString::to_string),
         )
+    }
+
+    fn exact_index(documents: impl IntoIterator<Item = IndexedDocument>) -> SearchIndex {
+        ExactIndexBackend.build(documents.into_iter().collect())
     }
 
     #[test]
@@ -939,7 +957,7 @@ mod search_tests {
 
     #[test]
     fn matches_title_prefixes() {
-        let index = SearchIndex::from_documents([document("Rust Programming", &[])]);
+        let index = exact_index([document("Rust Programming", &[])]);
         let results = search(&index, "prog", 10);
 
         assert_eq!(results.len(), 1);
@@ -948,14 +966,14 @@ mod search_tests {
 
     #[test]
     fn ignores_short_title_prefixes() {
-        let index = SearchIndex::from_documents([document("Rust Programming", &[])]);
+        let index = exact_index([document("Rust Programming", &[])]);
 
         assert!(search(&index, "ru", 10).is_empty());
     }
 
     #[test]
     fn normalizes_title_and_query_punctuation() {
-        let index = SearchIndex::from_documents([document("Go!", &["go"])]);
+        let index = exact_index([document("Go!", &["go"])]);
 
         assert_eq!(search(&index, "go", 10).len(), 1);
         assert_eq!(search(&index, "go!", 10).len(), 1);
@@ -963,7 +981,7 @@ mod search_tests {
 
     #[test]
     fn ranks_exact_title_matches_above_prefixes() {
-        let index = SearchIndex::from_documents([
+        let index = exact_index([
             document("Rustacean Guide", &[]),
             document("Rust Guide", &[]),
         ]);
@@ -976,7 +994,7 @@ mod search_tests {
 
     #[test]
     fn matches_body_prefixes() {
-        let index = SearchIndex::from_documents([document("Other Title", &["programming"])]);
+        let index = exact_index([document("Other Title", &["programming"])]);
 
         assert_eq!(search(&index, "prog", 10).len(), 1);
         assert_eq!(search(&index, "programming", 10).len(), 1);
@@ -984,7 +1002,7 @@ mod search_tests {
 
     #[test]
     fn one_prefix_only_scores_once_when_multiple_words_match() {
-        let index = SearchIndex::from_documents([
+        let index = exact_index([
             document("First", &["program", "programming"]),
             document("Second", &["programming"]),
         ]);
@@ -1000,7 +1018,7 @@ mod search_tests {
             let term = format!("prefix{number:02}");
             document(&title, &[&term])
         });
-        let index = SearchIndex::from_documents(documents);
+        let index = exact_index(documents);
 
         assert_eq!(search(&index, "pre", 100).len(), 40);
     }
