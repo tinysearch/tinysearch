@@ -41,11 +41,9 @@ underlying technologies are subject to change.
 
 ## Limitations
 
-- Only finds entire words. As a consequence there are no search suggestions
-  (yet). This is a necessary tradeoff for reducing memory usage. A trie
-  datastructure was about 10x bigger than the xor filters. New research on
-  compact datastructures for prefix searches might lift this limitation in the
-  future.
+- Body and metadata searches only find entire words. Title words support prefix
+  matching once the query term reaches three characters. This provides useful
+  type-ahead feedback without increasing the index size.
 - Since we bundle all search indices for all articles into one static binary, we
   recommend to only use it for small- to medium-size websites. Expect around 2
   kB uncompressed per article (~1 kb compressed).

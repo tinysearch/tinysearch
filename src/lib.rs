@@ -287,20 +287,41 @@ mod storage_tests {
 /// Type alias for the filter used in search
 pub type Filter = HashProxy<String, DefaultHasher, Xor8>;
 
-/// Weight multiplier for title matches vs body matches
-const TITLE_WEIGHT: usize = 3;
+/// Weight assigned to an exact title-term match.
+const TITLE_EXACT_WEIGHT: usize = 3;
 
-/// Calculates a combined score for a post based on title and body matches
-/// Post title matches are weighted higher than body matches
+/// Weight assigned to a title-prefix match.
+const TITLE_PREFIX_WEIGHT: usize = 2;
+
+/// Minimum query length for title-prefix matching.
+const MIN_TITLE_PREFIX_LEN: usize = 3;
+
+/// Calculates the score for one query term against the title.
+fn title_term_score(title_terms: &[String], search_term: &str) -> usize {
+    if title_terms
+        .iter()
+        .any(|title_term| title_term == search_term)
+    {
+        TITLE_EXACT_WEIGHT
+    } else if search_term.chars().count() >= MIN_TITLE_PREFIX_LEN
+        && title_terms
+            .iter()
+            .any(|title_term| title_term.starts_with(search_term))
+    {
+        TITLE_PREFIX_WEIGHT
+    } else {
+        0
+    }
+}
+
+/// Calculates a combined score for a post based on title and body matches.
+/// Exact title matches rank above title prefixes, which rank above body matches.
 fn score(post_id: &PostId, search_terms: &[String], filter: &Filter) -> usize {
     let title_terms: Vec<String> = tokenize(&post_id.title);
-    let title_score: usize = search_terms
-        .iter()
-        .filter(|term| title_terms.contains(term))
-        .count();
-    TITLE_WEIGHT
-        .saturating_mul(title_score)
-        .saturating_add(filter.score(search_terms))
+    let title_score = search_terms.iter().fold(0_usize, |score, term| {
+        score.saturating_add(title_term_score(&title_terms, term))
+    });
+    title_score.saturating_add(filter.score(search_terms))
 }
 
 /// Tokenizes a string into lowercase words, removing empty tokens
@@ -312,7 +333,10 @@ fn tokenize(s: &str) -> Vec<String> {
         .collect()
 }
 
-/// Performs a search query against the provided filters
+/// Performs a search query against the provided filters.
+///
+/// Title words support prefix matching for query terms of at least three
+/// characters. Body and metadata terms continue to require exact matches.
 ///
 /// # Arguments
 /// * `index` - The search index containing all posts and their filters
@@ -336,6 +360,61 @@ pub fn search<'index>(
     matches.sort_by_key(|k| Reverse(k.1));
 
     matches.into_iter().take(num_results).map(|p| p.0).collect()
+}
+
+#[cfg(test)]
+#[allow(clippy::indexing_slicing)]
+mod search_tests {
+    use super::*;
+
+    fn post_filter(title: &str, indexed_terms: &[&str]) -> PostFilter {
+        let terms: Vec<String> = indexed_terms.iter().map(ToString::to_string).collect();
+        (
+            PostId {
+                title: title.to_string(),
+                url: format!("/{title}"),
+                meta: String::new(),
+            },
+            HashProxy::from(&terms),
+        )
+    }
+
+    #[test]
+    fn matches_title_prefixes() {
+        let index = vec![post_filter("Rust Programming", &["rust", "programming"])];
+        let results = search(&index, "prog", 10);
+
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].title, "Rust Programming");
+    }
+
+    #[test]
+    fn ignores_short_title_prefixes() {
+        let index = vec![post_filter("Rust Programming", &["rust", "programming"])];
+
+        assert!(search(&index, "ru", 10).is_empty());
+    }
+
+    #[test]
+    fn ranks_exact_title_matches_above_prefixes() {
+        let index = vec![
+            post_filter("Rustacean Guide", &["rustacean", "guide"]),
+            post_filter("Rust Guide", &["rust", "guide"]),
+        ];
+        let results = search(&index, "rust", 10);
+
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].title, "Rust Guide");
+        assert_eq!(results[1].title, "Rustacean Guide");
+    }
+
+    #[test]
+    fn keeps_body_prefixes_exact() {
+        let index = vec![post_filter("Other Title", &["programming"])];
+
+        assert!(search(&index, "prog", 10).is_empty());
+        assert_eq!(search(&index, "programming", 10).len(), 1);
+    }
 }
 
 #[cfg(test)]

@@ -293,8 +293,9 @@ impl TinySearch {
     /// Search using a pre-built index
     ///
     /// This method performs a search query against a pre-built search index,
-    /// returning results sorted by relevance score. Title matches are weighted
-    /// higher than body matches to prioritize more relevant results.
+    /// returning results sorted by relevance score. Exact title matches rank
+    /// above title prefixes, while body and metadata terms require exact matches.
+    /// Title-prefix matching starts at three characters.
     ///
     /// # Arguments
     /// * `index` - Pre-built search index from [`build_index`](Self::build_index)
