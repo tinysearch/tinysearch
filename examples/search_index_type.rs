@@ -53,7 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Demonstrate serialization/deserialization with SearchIndex
     println!("\nTesting serialization...");
-    let index_bytes = search.build_and_serialize_index(&posts)?;
+    let index_bytes = search.serialize_index(&stored_index)?;
     let loaded_index: SearchIndex = search.load_index_from_bytes(&index_bytes)?;
 
     let results = search.search(&loaded_index, "advanced", 5);

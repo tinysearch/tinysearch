@@ -73,7 +73,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Example 3: Serialize and deserialize index
     println!("Testing serialization...");
-    let serialized = tinysearch.build_and_serialize_index(&json_posts)?;
+    let index = tinysearch.build_index(&json_posts)?;
+    let serialized = tinysearch.serialize_index(&index)?;
     println!("Serialized index size: {} bytes", serialized.len());
 
     let deserialized_index = tinysearch.load_index_from_bytes(&serialized)?;

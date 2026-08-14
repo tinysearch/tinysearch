@@ -416,17 +416,21 @@ impl Score for HashProxy<String, DefaultHasher, Xor8> {
     }
 }
 
+pub(crate) fn encode_search_index(index: &SearchIndex) -> Result<Vec<u8>, StorageError> {
+    match &index.data {
+        SearchIndexData::Exact(index) => encode_exact_index(index),
+        SearchIndexData::Xor8(filters) => {
+            bincode::serde::encode_to_vec(filters, bincode::config::legacy())
+                .map_err(StorageError::Encode)
+        }
+    }
+}
+
 impl Storage {
     /// Serializes exact indexes with compact delta postings and uses the
     /// historical bincode format for Xor8 indexes.
     pub fn to_bytes(&self) -> Result<Vec<u8>, StorageError> {
-        match &self.filters.data {
-            SearchIndexData::Exact(index) => encode_exact_index(index),
-            SearchIndexData::Xor8(filters) => {
-                bincode::serde::encode_to_vec(filters, bincode::config::legacy())
-                    .map_err(StorageError::Encode)
-            }
-        }
+        encode_search_index(&self.filters)
     }
 
     /// Deserializes exact and Xor8 indexes.

@@ -368,53 +368,41 @@ impl TinySearch {
         crate::search(index, query, num_results)
     }
 
-    /// Build a search index and serialize it to bytes
-    ///
-    /// This is a convenience method that combines index building and compact
-    /// serialization for easy storage to files or databases.
-    ///
-    /// # Arguments
-    /// * `posts` - Vector of posts implementing the [`Post`] trait
-    ///
-    /// # Returns
-    /// * `Ok(Vec<u8>)` - Serialized index as bytes
-    /// * `Err(Box<dyn std::error::Error>)` - Index generation or serialization error
-    ///
-    /// # Example
+    /// Serialize a built search index to bytes.
     ///
     /// ```rust
     /// use tinysearch::{BasicPost, TinySearch};
     /// use std::collections::HashMap;
     ///
-    /// let posts = vec![
-    ///     BasicPost {
-    ///         title: "My Post".to_string(),
-    ///         url: "/post".to_string(),
-    ///         body: Some("Post content".to_string()),
-    ///         meta: HashMap::new(),
-    ///     }
-    /// ];
+    /// let posts = vec![BasicPost {
+    ///     title: "My Post".to_string(),
+    ///     url: "/post".to_string(),
+    ///     body: Some("Post content".to_string()),
+    ///     meta: HashMap::new(),
+    /// }];
     /// let search = TinySearch::new();
-    ///
-    /// // Build and serialize index
-    /// let index_bytes = search.build_and_serialize_index(&posts).unwrap();
-    ///
-    /// // You can save to file: std::fs::write("search_index.bin", index_bytes).unwrap();
+    /// let index = search.build_index(&posts).unwrap();
+    /// let index_bytes = search.serialize_index(&index).unwrap();
     /// ```
+    pub fn serialize_index(&self, index: &SearchIndex) -> Result<Vec<u8>, StorageError> {
+        crate::encode_search_index(index)
+    }
+
+    /// Build and serialize an index in one step.
+    #[deprecated(note = "call build_index, then serialize_index")]
     pub fn build_and_serialize_index<P: Post>(
         &self,
         posts: &[P],
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let index = self.build_index(posts)?;
-        let storage = Storage::from(index);
-        storage.to_bytes().map_err(std::convert::Into::into)
+        self.serialize_index(&index)
+            .map_err(std::convert::Into::into)
     }
 
     /// Load a search index from serialized bytes
     ///
-    /// This method deserializes a previously saved search index from bytes.
-    /// The index must have been created using [`build_and_serialize_index`](Self::build_and_serialize_index)
-    /// or compatible serialization.
+    /// This method deserializes bytes produced by
+    /// [`serialize_index`](Self::serialize_index) or compatible serialization.
     ///
     /// # Arguments
     /// * `bytes` - Serialized index bytes
@@ -440,7 +428,8 @@ impl TinySearch {
     ///         meta: HashMap::new(),
     ///     }
     /// ];
-    /// let index_bytes = search.build_and_serialize_index(&posts).unwrap();
+    /// let built_index = search.build_index(&posts).unwrap();
+    /// let index_bytes = search.serialize_index(&built_index).unwrap();
     ///
     /// // Then load it back
     /// let index = search.load_index_from_bytes(&index_bytes).unwrap();
@@ -543,7 +532,7 @@ mod tests {
     use std::cell::RefCell;
 
     use super::*;
-    use crate::{ExactIndexBackend, IndexBackend, IndexKind, Storage};
+    use crate::{ExactIndexBackend, IndexBackend, IndexKind};
 
     #[derive(Default)]
     struct RecordingBackend {
@@ -585,8 +574,8 @@ mod tests {
         let aliased: SearchIndex = serde_json::from_str(&legacy_json)?;
         assert_eq!(xor_search.search(&aliased, "observability", 5).len(), 1);
 
-        let bytes = Storage::from(xor8).to_bytes()?;
-        let round_tripped = Storage::from_bytes(&bytes)?.filters;
+        let bytes = xor_search.serialize_index(&xor8)?;
+        let round_tripped = xor_search.load_index_from_bytes(&bytes)?;
         assert_eq!(
             xor_search.search(&round_tripped, "observability", 5).len(),
             1
