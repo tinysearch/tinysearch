@@ -43,6 +43,7 @@ pub mod api;
 use serde::{Deserialize, Serialize};
 use std::cmp::Reverse;
 use std::collections::hash_map::DefaultHasher;
+use std::collections::{BTreeMap, BTreeSet};
 use std::convert::From;
 use xorf::{Filter as XorfFilter, HashProxy, Xor8};
 
@@ -60,13 +61,13 @@ pub struct PostId {
     pub meta: String,
 }
 
-/// A post with its associated Xor filter for fast lookups
+/// A legacy post entry with its associated Xor filter.
 pub type PostFilter = (PostId, HashProxy<String, DefaultHasher, Xor8>);
 
-/// A deserialized search index containing posts and their search filters
+/// A search index containing posts and exact term-to-document postings.
 ///
-/// This allows users to store and work with search indexes without
-/// needing to import the xorf library directly.
+/// Terms are sorted so exact and prefix lookups can use a binary-search lower
+/// bound. Each posting list contains the documents that use that term.
 ///
 /// # Example
 ///
@@ -85,9 +86,92 @@ pub type PostFilter = (PostId, HashProxy<String, DefaultHasher, Xor8>);
 ///
 /// let search = TinySearch::new();
 /// let index: SearchIndex = search.build_index(&posts).unwrap();
-/// let results = search.search(&index, "content", 10);
+/// let results = search.search(&index, "cont", 10);
 /// ```
-pub type SearchIndex = Vec<PostFilter>;
+#[derive(Serialize, Deserialize)]
+pub struct SearchIndex {
+    data: SearchIndexData,
+}
+
+#[derive(Serialize, Deserialize)]
+enum SearchIndexData {
+    Exact(ExactIndex),
+    Legacy(Vec<PostFilter>),
+}
+
+#[derive(Serialize, Deserialize)]
+struct ExactIndex {
+    posts: Vec<PostId>,
+    terms: Vec<String>,
+    postings: Vec<Vec<usize>>,
+}
+
+impl SearchIndex {
+    /// Builds an exact inverted index from posts and their normalized terms.
+    ///
+    /// Terms already present in the normalized title are omitted from postings
+    /// because titles are scored directly with a higher weight.
+    pub fn from_documents<I, T>(documents: I) -> Self
+    where
+        I: IntoIterator<Item = (PostId, T)>,
+        T: IntoIterator<Item = String>,
+    {
+        let mut posts = Vec::new();
+        let mut postings = BTreeMap::<String, Vec<usize>>::new();
+        for (document, (post, terms)) in documents.into_iter().enumerate() {
+            let title_terms: BTreeSet<String> = tokenize(&post.title).into_iter().collect();
+            let terms: BTreeSet<String> = terms
+                .into_iter()
+                .filter(|term| !term.is_empty() && !title_terms.contains(term))
+                .collect();
+            posts.push(post);
+            for term in terms {
+                postings.entry(term).or_default().push(document);
+            }
+        }
+        let (terms, postings) = postings.into_iter().unzip();
+        Self {
+            data: SearchIndexData::Exact(ExactIndex {
+                posts,
+                terms,
+                postings,
+            }),
+        }
+    }
+
+    /// Returns the number of indexed posts.
+    pub fn len(&self) -> usize {
+        match &self.data {
+            SearchIndexData::Exact(index) => index.posts.len(),
+            SearchIndexData::Legacy(filters) => filters.len(),
+        }
+    }
+
+    /// Returns whether the index contains no posts.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+impl From<Vec<PostFilter>> for SearchIndex {
+    fn from(filters: Vec<PostFilter>) -> Self {
+        Self {
+            data: SearchIndexData::Legacy(filters),
+        }
+    }
+}
+
+impl FromIterator<PostFilter> for SearchIndex {
+    fn from_iter<T: IntoIterator<Item = PostFilter>>(iter: T) -> Self {
+        Self::from(iter.into_iter().collect::<Vec<_>>())
+    }
+}
+
+impl Default for SearchIndex {
+    fn default() -> Self {
+        Self::from(Vec::new())
+    }
+}
 
 // Re-export public API types from the API module
 pub use api::{BasicPost, Post, TinySearch};
@@ -183,10 +267,10 @@ impl SearchSchema {
     }
 }
 
-/// Storage container for serialized search index
+/// Storage container for a serialized search index.
 #[derive(Serialize, Deserialize)]
 pub struct Storage {
-    /// Vector of post filters for search functionality
+    /// Search index data.
     pub filters: SearchIndex,
 }
 
@@ -198,6 +282,8 @@ pub enum StorageError {
     Encode(bincode::error::EncodeError),
     /// The search index could not be decoded.
     Decode(bincode::error::DecodeError),
+    /// The compact index data is malformed.
+    InvalidData(&'static str),
 }
 
 impl std::fmt::Display for StorageError {
@@ -205,6 +291,7 @@ impl std::fmt::Display for StorageError {
         match self {
             Self::Encode(error) => write!(formatter, "failed to encode search index: {error}"),
             Self::Decode(error) => write!(formatter, "failed to decode search index: {error}"),
+            Self::InvalidData(error) => write!(formatter, "invalid search index: {error}"),
         }
     }
 }
@@ -214,6 +301,7 @@ impl std::error::Error for StorageError {
         match self {
             Self::Encode(error) => Some(error),
             Self::Decode(error) => Some(error),
+            Self::InvalidData(_) => None,
         }
     }
 }
@@ -224,14 +312,21 @@ impl From<SearchIndex> for Storage {
     }
 }
 
-/// Trait for scoring search terms against a filter
+impl From<Vec<PostFilter>> for Storage {
+    fn from(filters: Vec<PostFilter>) -> Self {
+        Self {
+            filters: filters.into(),
+        }
+    }
+}
+
+/// Trait for scoring search terms against a legacy filter.
 pub trait Score {
     /// Returns the number of search terms that match this filter
     fn score(&self, terms: &[String]) -> usize;
 }
 
-/// Implementation of scoring for Xor filters
-/// The score denotes the number of terms from the query that are contained in the current filter
+/// Scores a legacy Xor filter by the number of contained query terms.
 impl Score for HashProxy<String, DefaultHasher, Xor8> {
     fn score(&self, terms: &[String]) -> usize {
         terms.iter().filter(|term| self.contains(term)).count()
@@ -239,27 +334,219 @@ impl Score for HashProxy<String, DefaultHasher, Xor8> {
 }
 
 impl Storage {
-    /// Serializes the storage to bytes using bincode's legacy configuration.
-    ///
-    /// The legacy configuration preserves compatibility with indexes created by
-    /// tinysearch versions that used bincode 1.
+    /// Serializes exact indexes with compact delta postings and preserves the
+    /// historical bincode format for legacy Xor-filter indexes.
     pub fn to_bytes(&self) -> Result<Vec<u8>, StorageError> {
-        bincode::serde::encode_to_vec(&self.filters, bincode::config::legacy())
-            .map_err(StorageError::Encode)
+        match &self.filters.data {
+            SearchIndexData::Exact(index) => encode_exact_index(index),
+            SearchIndexData::Legacy(filters) => {
+                bincode::serde::encode_to_vec(filters, bincode::config::legacy())
+                    .map_err(StorageError::Encode)
+            }
+        }
     }
 
-    /// Deserializes storage from bytes using bincode's legacy configuration.
+    /// Deserializes current exact indexes and legacy Xor-filter indexes.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, StorageError> {
-        let (filters, _) = bincode::serde::decode_from_slice(bytes, bincode::config::legacy())
-            .map_err(StorageError::Decode)?;
-        Ok(Self { filters })
+        if bytes.starts_with(STORAGE_MAGIC) {
+            return decode_exact_index(bytes).map(|index| Self {
+                filters: SearchIndex {
+                    data: SearchIndexData::Exact(index),
+                },
+            });
+        }
+
+        let (filters, _) = bincode::serde::decode_from_slice::<Vec<PostFilter>, _>(
+            bytes,
+            bincode::config::legacy(),
+        )
+        .map_err(StorageError::Decode)?;
+        Ok(Self {
+            filters: SearchIndex::from(filters),
+        })
     }
+}
+
+fn encode_exact_index(index: &ExactIndex) -> Result<Vec<u8>, StorageError> {
+    if index.terms.len() != index.postings.len()
+        || index.terms.windows(2).any(|pair| pair[0] >= pair[1])
+        || index.terms.iter().any(|term| term.contains('\n'))
+    {
+        return Err(StorageError::InvalidData(
+            "terms and postings must be aligned, sorted, and newline-free",
+        ));
+    }
+
+    let posts = bincode::serde::encode_to_vec(&index.posts, bincode::config::standard())
+        .map_err(StorageError::Encode)?;
+    let mut vocabulary = index.terms.join("\n").into_bytes();
+    if !vocabulary.is_empty() {
+        vocabulary.push(b'\n');
+    }
+
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(STORAGE_MAGIC);
+    write_varint(&mut bytes, posts.len());
+    bytes.extend_from_slice(&posts);
+    write_varint(&mut bytes, index.terms.len());
+    write_varint(&mut bytes, vocabulary.len());
+    bytes.extend_from_slice(&vocabulary);
+
+    for postings in &index.postings {
+        if postings.is_empty() {
+            return Err(StorageError::InvalidData("posting lists must not be empty"));
+        }
+        write_varint(&mut bytes, postings.len());
+        let mut previous = 0_usize;
+        for (position, &document) in postings.iter().enumerate() {
+            if document >= index.posts.len() {
+                return Err(StorageError::InvalidData(
+                    "posting document is out of range",
+                ));
+            }
+            let delta = if position == 0 {
+                document
+            } else {
+                document
+                    .checked_sub(previous)
+                    .filter(|delta| *delta > 0)
+                    .ok_or(StorageError::InvalidData(
+                        "posting lists must be strictly increasing",
+                    ))?
+            };
+            write_varint(&mut bytes, delta);
+            previous = document;
+        }
+    }
+    Ok(bytes)
+}
+
+fn decode_exact_index(bytes: &[u8]) -> Result<ExactIndex, StorageError> {
+    let mut cursor = STORAGE_MAGIC.len();
+    let posts_len = read_varint(bytes, &mut cursor)?;
+    let posts_end = cursor
+        .checked_add(posts_len)
+        .ok_or(StorageError::InvalidData("post payload length overflowed"))?;
+    let posts_bytes = bytes
+        .get(cursor..posts_end)
+        .ok_or(StorageError::InvalidData(
+            "post payload extends beyond the index",
+        ))?;
+    let (posts, consumed) = bincode::serde::decode_from_slice::<Vec<PostId>, _>(
+        posts_bytes,
+        bincode::config::standard(),
+    )
+    .map_err(StorageError::Decode)?;
+    if consumed != posts_bytes.len() {
+        return Err(StorageError::InvalidData("post payload has trailing bytes"));
+    }
+
+    cursor = posts_end;
+    let term_count = read_varint(bytes, &mut cursor)?;
+    let vocabulary_len = read_varint(bytes, &mut cursor)?;
+    let vocabulary_end = cursor
+        .checked_add(vocabulary_len)
+        .ok_or(StorageError::InvalidData("vocabulary length overflowed"))?;
+    let vocabulary = bytes
+        .get(cursor..vocabulary_end)
+        .ok_or(StorageError::InvalidData(
+            "vocabulary extends beyond the index",
+        ))?;
+    let vocabulary = std::str::from_utf8(vocabulary)
+        .map_err(|_error| StorageError::InvalidData("vocabulary is not valid UTF-8"))?;
+    let terms: Vec<String> = vocabulary.lines().map(String::from).collect();
+    if terms.len() != term_count || !terms.windows(2).all(|pair| pair[0] < pair[1]) {
+        return Err(StorageError::InvalidData(
+            "vocabulary must be sorted, unique, and match its term count",
+        ));
+    }
+
+    cursor = vocabulary_end;
+    let mut postings = Vec::with_capacity(term_count);
+    for _ in 0..term_count {
+        let posting_count = read_varint(bytes, &mut cursor)?;
+        let remaining_bytes = bytes.len().saturating_sub(cursor);
+        if posting_count == 0 || posting_count > posts.len() || posting_count > remaining_bytes {
+            return Err(StorageError::InvalidData(
+                "posting count is invalid for this index",
+            ));
+        }
+        let mut documents = Vec::with_capacity(posting_count);
+        let mut previous = 0_usize;
+        for position in 0..posting_count {
+            let delta = read_varint(bytes, &mut cursor)?;
+            if position > 0 && delta == 0 {
+                return Err(StorageError::InvalidData(
+                    "posting documents must be strictly increasing",
+                ));
+            }
+            let document = previous
+                .checked_add(delta)
+                .ok_or(StorageError::InvalidData("posting document overflowed"))?;
+            if document >= posts.len() {
+                return Err(StorageError::InvalidData(
+                    "posting document is out of range",
+                ));
+            }
+            documents.push(document);
+            previous = document;
+        }
+        postings.push(documents);
+    }
+    if cursor != bytes.len() {
+        return Err(StorageError::InvalidData("index has trailing bytes"));
+    }
+
+    Ok(ExactIndex {
+        posts,
+        terms,
+        postings,
+    })
+}
+
+fn write_varint(output: &mut Vec<u8>, mut value: usize) {
+    while value >= 0x80 {
+        output.push((value.to_le_bytes()[0] & 0x7f) | 0x80);
+        value >>= 7;
+    }
+    output.push(value.to_le_bytes()[0]);
+}
+
+fn read_varint(input: &[u8], cursor: &mut usize) -> Result<usize, StorageError> {
+    let mut value = 0_usize;
+    for shift in (0..usize::BITS).step_by(7) {
+        let byte = input
+            .get(*cursor)
+            .copied()
+            .ok_or(StorageError::InvalidData(
+                "index contains a truncated varint",
+            ))?;
+        *cursor = (*cursor)
+            .checked_add(1)
+            .ok_or(StorageError::InvalidData("varint cursor overflowed"))?;
+        let payload = usize::from(byte & 0x7f);
+        if payload > (usize::MAX >> shift) {
+            return Err(StorageError::InvalidData(
+                "varint exceeds the platform range",
+            ));
+        }
+        value |= payload << shift;
+        if byte & 0x80 == 0 {
+            return Ok(value);
+        }
+    }
+    Err(StorageError::InvalidData(
+        "index contains an unterminated varint",
+    ))
 }
 
 #[cfg(test)]
 #[allow(clippy::unwrap_used)]
 mod storage_tests {
-    use super::{Storage, StorageError};
+    use super::{
+        PostId, STORAGE_MAGIC, SearchIndex, SearchIndexData, Storage, StorageError, search,
+        write_varint,
+    };
     use xorf::Filter;
 
     #[test]
@@ -275,11 +562,59 @@ mod storage_tests {
         let bytes = include_bytes!("testdata/legacy-storage-v0.10.bin");
         let storage = Storage::from_bytes(bytes)?;
         assert_eq!(storage.filters.len(), 1);
-        let (post, filter) = &storage.filters[0];
-
+        let SearchIndexData::Legacy(filters) = &storage.filters.data else {
+            return Err(StorageError::InvalidData(
+                "legacy fixture decoded as an exact index",
+            ));
+        };
+        let (post, filter) = &filters[0];
         assert_eq!(post.title, "Legacy index");
         assert_eq!(post.url, "/legacy");
         assert!(filter.contains(&"legacy".to_string()));
+        Ok(())
+    }
+
+    #[test]
+    fn round_trips_exact_prefix_index() -> Result<(), StorageError> {
+        let post = PostId {
+            title: "Other title".to_string(),
+            url: "/other".to_string(),
+            meta: String::new(),
+        };
+        let index = SearchIndex::from_documents([(
+            post,
+            ["programming".to_string(), "program".to_string()],
+        )]);
+        let bytes = Storage::from(index).to_bytes()?;
+
+        assert!(bytes.starts_with(STORAGE_MAGIC));
+        let storage = Storage::from_bytes(&bytes)?;
+        assert_eq!(search(&storage.filters, "prog", 5).len(), 1);
+        assert_eq!(search(&storage.filters, "programming", 5).len(), 1);
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_impossible_posting_counts() -> Result<(), StorageError> {
+        let post = PostId {
+            title: "Title".to_string(),
+            url: "/title".to_string(),
+            meta: String::new(),
+        };
+        let posts = bincode::serde::encode_to_vec(vec![post], bincode::config::standard())
+            .map_err(StorageError::Encode)?;
+        let mut bytes = STORAGE_MAGIC.to_vec();
+        write_varint(&mut bytes, posts.len());
+        bytes.extend_from_slice(&posts);
+        write_varint(&mut bytes, 1);
+        write_varint(&mut bytes, 5);
+        bytes.extend_from_slice(b"word\n");
+        write_varint(&mut bytes, usize::MAX);
+
+        assert!(matches!(
+            Storage::from_bytes(&bytes),
+            Err(StorageError::InvalidData(_))
+        ));
         Ok(())
     }
 }
@@ -287,14 +622,17 @@ mod storage_tests {
 /// Type alias for the filter used in search
 pub type Filter = HashProxy<String, DefaultHasher, Xor8>;
 
+/// Prefix for the compact exact inverted-index storage format.
+const STORAGE_MAGIC: &[u8] = b"tinysearch\x02";
+
 /// Weight assigned to an exact title-term match.
 const TITLE_EXACT_WEIGHT: usize = 3;
 
 /// Weight assigned to a title-prefix match.
 const TITLE_PREFIX_WEIGHT: usize = 2;
 
-/// Minimum query length for title-prefix matching.
-const MIN_TITLE_PREFIX_LEN: usize = 3;
+/// Minimum query length for prefix matching.
+pub const MIN_PREFIX_LEN: usize = 3;
 
 /// Calculates the score for one query term against the title.
 fn title_term_score(title_terms: &[String], search_term: &str) -> usize {
@@ -303,7 +641,7 @@ fn title_term_score(title_terms: &[String], search_term: &str) -> usize {
         .any(|title_term| title_term == search_term)
     {
         TITLE_EXACT_WEIGHT
-    } else if search_term.chars().count() >= MIN_TITLE_PREFIX_LEN
+    } else if search_term.chars().count() >= MIN_PREFIX_LEN
         && title_terms
             .iter()
             .any(|title_term| title_term.starts_with(search_term))
@@ -314,32 +652,109 @@ fn title_term_score(title_terms: &[String], search_term: &str) -> usize {
     }
 }
 
-/// Calculates a combined score for a post based on title and body matches.
-/// Exact title matches rank above title prefixes, which rank above body matches.
-fn score(post_id: &PostId, search_terms: &[String], filter: &Filter) -> usize {
-    let title_terms: Vec<String> = tokenize(&post_id.title);
-    let title_score = search_terms.iter().fold(0_usize, |score, term| {
-        score.saturating_add(title_term_score(&title_terms, term))
-    });
-    title_score.saturating_add(filter.score(search_terms))
+fn search_exact<'index>(
+    index: &'index ExactIndex,
+    search_terms: &[String],
+    num_results: usize,
+) -> Vec<&'index PostId> {
+    let title_terms: Vec<Vec<String>> = index
+        .posts
+        .iter()
+        .map(|post| tokenize(&post.title))
+        .collect();
+    let mut scores = vec![0_usize; index.posts.len()];
+
+    for search_term in search_terms {
+        for (score, terms) in scores.iter_mut().zip(&title_terms) {
+            *score = score.saturating_add(title_term_score(terms, search_term));
+        }
+
+        let mut content_matches = vec![false; index.posts.len()];
+        let start = index
+            .terms
+            .partition_point(|term| term.as_str() < search_term.as_str());
+        let candidates = index.terms.get(start..).unwrap_or(&[]);
+        let matching_terms = if search_term.chars().count() >= MIN_PREFIX_LEN {
+            candidates
+                .iter()
+                .take_while(|term| term.starts_with(search_term))
+                .count()
+        } else {
+            usize::from(candidates.first().is_some_and(|term| term == search_term))
+        };
+
+        for postings in index.postings.iter().skip(start).take(matching_terms) {
+            for &document in postings {
+                if let Some(content_match) = content_matches.get_mut(document) {
+                    *content_match = true;
+                }
+            }
+        }
+        for (score, content_match) in scores.iter_mut().zip(content_matches) {
+            *score = score.saturating_add(usize::from(content_match));
+        }
+    }
+
+    ranked_posts(&index.posts, scores, num_results)
 }
 
-/// Tokenizes a string into lowercase words, removing empty tokens
-fn tokenize(s: &str) -> Vec<String> {
-    s.to_lowercase()
-        .split_whitespace()
-        .filter(|&t| !t.trim().is_empty())
-        .map(String::from)
+fn search_legacy<'index>(
+    filters: &'index [PostFilter],
+    search_terms: &[String],
+    num_results: usize,
+) -> Vec<&'index PostId> {
+    let mut matches: Vec<(&PostId, usize)> = filters
+        .iter()
+        .map(|(post, filter)| {
+            let title_terms = tokenize(&post.title);
+            let title_score = search_terms.iter().fold(0_usize, |score, term| {
+                score.saturating_add(title_term_score(&title_terms, term))
+            });
+            (post, title_score.saturating_add(filter.score(search_terms)))
+        })
+        .filter(|(_post, score)| *score > 0)
+        .collect();
+    matches.sort_by_key(|(_post, score)| Reverse(*score));
+    matches
+        .into_iter()
+        .take(num_results)
+        .map(|(post, _score)| post)
         .collect()
 }
 
-/// Performs a search query against the provided filters.
+fn ranked_posts(posts: &[PostId], scores: Vec<usize>, num_results: usize) -> Vec<&PostId> {
+    let mut matches: Vec<(&PostId, usize)> = posts
+        .iter()
+        .zip(scores)
+        .filter(|(_post, score)| *score > 0)
+        .collect();
+    matches.sort_by_key(|(_post, score)| Reverse(*score));
+    matches
+        .into_iter()
+        .take(num_results)
+        .map(|(post, _score)| post)
+        .collect()
+}
+
+/// Tokenizes query and title text with lightweight punctuation cleanup.
+fn tokenize(text: &str) -> Vec<String> {
+    text.replace(
+        |character: char| !(character.is_alphabetic() || character == '\''),
+        " ",
+    )
+    .split_whitespace()
+    .map(str::to_lowercase)
+    .collect()
+}
+
+/// Performs a search query against the provided index.
 ///
-/// Title words support prefix matching for query terms of at least three
-/// characters. Body and metadata terms continue to require exact matches.
+/// Query terms of at least three characters support prefix matching in titles,
+/// body text, and metadata for exact indexes. Shorter terms require exact
+/// matches. Legacy Xor-filter indexes keep exact body and metadata matching.
 ///
 /// # Arguments
-/// * `index` - The search index containing all posts and their filters
+/// * `index` - The search index containing posts and exact term postings
 /// * `query` - The search query string
 /// * `num_results` - Maximum number of results to return
 ///
@@ -351,15 +766,10 @@ pub fn search<'index>(
     num_results: usize,
 ) -> Vec<&'index PostId> {
     let search_terms: Vec<String> = tokenize(query);
-    let mut matches: Vec<(&PostId, usize)> = index
-        .iter()
-        .map(|(post_id, filter)| (post_id, score(post_id, &search_terms, filter)))
-        .filter(|(_post_id, score)| *score > 0)
-        .collect();
-
-    matches.sort_by_key(|k| Reverse(k.1));
-
-    matches.into_iter().take(num_results).map(|p| p.0).collect()
+    match &index.data {
+        SearchIndexData::Exact(index) => search_exact(index, &search_terms, num_results),
+        SearchIndexData::Legacy(filters) => search_legacy(filters, &search_terms, num_results),
+    }
 }
 
 #[cfg(test)]
@@ -367,21 +777,20 @@ pub fn search<'index>(
 mod search_tests {
     use super::*;
 
-    fn post_filter(title: &str, indexed_terms: &[&str]) -> PostFilter {
-        let terms: Vec<String> = indexed_terms.iter().map(ToString::to_string).collect();
+    fn document(title: &str, indexed_terms: &[&str]) -> (PostId, Vec<String>) {
         (
             PostId {
                 title: title.to_string(),
                 url: format!("/{title}"),
                 meta: String::new(),
             },
-            HashProxy::from(&terms),
+            indexed_terms.iter().map(ToString::to_string).collect(),
         )
     }
 
     #[test]
     fn matches_title_prefixes() {
-        let index = vec![post_filter("Rust Programming", &["rust", "programming"])];
+        let index = SearchIndex::from_documents([document("Rust Programming", &[])]);
         let results = search(&index, "prog", 10);
 
         assert_eq!(results.len(), 1);
@@ -390,17 +799,25 @@ mod search_tests {
 
     #[test]
     fn ignores_short_title_prefixes() {
-        let index = vec![post_filter("Rust Programming", &["rust", "programming"])];
+        let index = SearchIndex::from_documents([document("Rust Programming", &[])]);
 
         assert!(search(&index, "ru", 10).is_empty());
     }
 
     #[test]
+    fn normalizes_title_and_query_punctuation() {
+        let index = SearchIndex::from_documents([document("Go!", &["go"])]);
+
+        assert_eq!(search(&index, "go", 10).len(), 1);
+        assert_eq!(search(&index, "go!", 10).len(), 1);
+    }
+
+    #[test]
     fn ranks_exact_title_matches_above_prefixes() {
-        let index = vec![
-            post_filter("Rustacean Guide", &["rustacean", "guide"]),
-            post_filter("Rust Guide", &["rust", "guide"]),
-        ];
+        let index = SearchIndex::from_documents([
+            document("Rustacean Guide", &[]),
+            document("Rust Guide", &[]),
+        ]);
         let results = search(&index, "rust", 10);
 
         assert_eq!(results.len(), 2);
@@ -409,11 +826,34 @@ mod search_tests {
     }
 
     #[test]
-    fn keeps_body_prefixes_exact() {
-        let index = vec![post_filter("Other Title", &["programming"])];
+    fn matches_body_prefixes() {
+        let index = SearchIndex::from_documents([document("Other Title", &["programming"])]);
 
-        assert!(search(&index, "prog", 10).is_empty());
+        assert_eq!(search(&index, "prog", 10).len(), 1);
         assert_eq!(search(&index, "programming", 10).len(), 1);
+    }
+
+    #[test]
+    fn one_prefix_only_scores_once_when_multiple_words_match() {
+        let index = SearchIndex::from_documents([
+            document("First", &["program", "programming"]),
+            document("Second", &["programming"]),
+        ]);
+
+        let results = search(&index, "prog", 10);
+        assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn searches_all_prefix_completions() {
+        let documents = (0..40).map(|number| {
+            let title = format!("Document {number}");
+            let term = format!("prefix{number:02}");
+            document(&title, &[&term])
+        });
+        let index = SearchIndex::from_documents(documents);
+
+        assert_eq!(search(&index, "pre", 100).len(), 40);
     }
 }
 

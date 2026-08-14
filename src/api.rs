@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::convert::From;
 use strip_markdown::strip_markdown;
-use xorf::{HashProxy, Xor8};
 
 use crate::{PostId, SearchIndex, Storage, StorageError};
 
@@ -247,14 +246,15 @@ impl TinySearch {
 
     /// Build a search index from a collection of posts
     ///
-    /// This method takes posts implementing the [`Post`] trait and generates the filters
-    /// needed for fast search. It handles tokenization, stop word removal, and filter generation.
+    /// This method takes posts implementing the [`Post`] trait and generates the
+    /// exact inverted index needed for fast search. It handles tokenization and
+    /// stop word removal.
     ///
     /// The process involves:
     /// 1. Extracting text content from each post (title, body, meta)
     /// 2. Tokenizing and cleaning the text (lowercase, remove punctuation)
     /// 3. Filtering out stopwords
-    /// 4. Creating Xor filters for efficient membership testing
+    /// 4. Creating compact term-to-document posting lists
     ///
     /// # Arguments
     /// * `posts` - Vector of posts implementing the [`Post`] trait
@@ -287,15 +287,16 @@ impl TinySearch {
     ) -> Result<SearchIndex, Box<dyn std::error::Error>> {
         let prepared_posts = Self::prepare_posts(posts);
         let stopwords = self.get_stopwords();
-        Ok(Self::generate_filters(prepared_posts, &stopwords))
+        Ok(Self::generate_index(prepared_posts, &stopwords))
     }
 
     /// Search using a pre-built index
     ///
     /// This method performs a search query against a pre-built search index,
     /// returning results sorted by relevance score. Exact title matches rank
-    /// above title prefixes, while body and metadata terms require exact matches.
-    /// Title-prefix matching starts at three characters.
+    /// above prefix matches. Prefix matching in titles, body text, and metadata
+    /// starts at three characters for newly built indexes. Legacy Xor-filter
+    /// indexes retain exact-word body and metadata matching.
     ///
     /// # Arguments
     /// * `index` - Pre-built search index from [`build_index`](Self::build_index)
@@ -374,8 +375,8 @@ impl TinySearch {
         &self,
         posts: &[P],
     ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-        let filters = self.build_index(posts)?;
-        let storage = Storage::from(filters);
+        let index = self.build_index(posts)?;
+        let storage = Storage::from(index);
         storage.to_bytes().map_err(std::convert::Into::into)
     }
 
@@ -454,8 +455,8 @@ impl TinySearch {
             .collect()
     }
 
-    /// Generate filters from prepared posts (internal implementation)
-    fn generate_filters(
+    /// Generate an exact inverted index from prepared posts.
+    fn generate_index(
         posts: HashMap<PostId, Option<String>>,
         stopwords: &HashSet<String>,
     ) -> SearchIndex {
@@ -469,37 +470,21 @@ impl TinySearch {
             })
             .collect();
 
-        split_posts
-            .into_iter()
-            .map(|(post_id, body)| {
-                // Add title to filter
-                let title: HashSet<String> =
-                    Self::tokenize_with_stopwords(&post_id.title, stopwords);
-
-                // Add metadata to filter
-                let metadata: HashSet<String> = if post_id.meta.is_empty() {
-                    HashSet::new()
-                } else {
-                    Self::tokenize_with_stopwords(&post_id.meta, stopwords)
-                };
-
-                let mut content: HashSet<String> = title;
-                content.extend(metadata);
-                if let Some(body) = body {
-                    content.extend(body);
-                }
-
-                let content_vec: Vec<String> = content.into_iter().collect();
-                let filter =
-                    HashProxy::<String, std::collections::hash_map::DefaultHasher, Xor8>::from(
-                        &content_vec,
-                    );
-                (post_id, filter)
-            })
-            .collect()
+        let documents = split_posts.into_iter().map(|(post_id, body)| {
+            let mut content = if post_id.meta.is_empty() {
+                HashSet::new()
+            } else {
+                Self::tokenize_with_stopwords(&post_id.meta, stopwords)
+            };
+            if let Some(body) = body {
+                content.extend(body);
+            }
+            (post_id, content)
+        });
+        SearchIndex::from_documents(documents)
     }
 
-    /// Prepare posts for filter generation (internal implementation)
+    /// Prepare posts for index generation (internal implementation)
     fn prepare_posts<P: Post>(posts: &[P]) -> HashMap<PostId, Option<String>> {
         posts
             .iter()

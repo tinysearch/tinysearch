@@ -301,7 +301,7 @@ url_field = "product_url"
             "-m",
             "search",
             "-S",
-            "wireless",
+            "waterp",
             "-N",
             "1",
             storage_path.to_str().unwrap(),
@@ -316,11 +316,11 @@ url_field = "product_url"
 
     let search_stdout = String::from_utf8_lossy(&search_output.stdout);
     assert!(
-        search_stdout.contains("Wireless Headphones"),
-        "Should find the wireless headphones product"
+        search_stdout.contains("Bluetooth Speaker"),
+        "Should find a body-only prefix match"
     );
     assert!(
-        search_stdout.contains("https://store.example.com/headphones"),
+        search_stdout.contains("https://store.example.com/speaker"),
         "Should contain the product URL"
     );
 }

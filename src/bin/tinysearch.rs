@@ -384,6 +384,7 @@ impl Stage for Wasm {
             if run_output(
                 Command::new("wasm-opt")
                     .current_dir(&self.out_path)
+                    .arg("--enable-bulk-memory")
                     .arg("-Oz")
                     .arg("-o")
                     .arg(&wasm_file)
@@ -393,7 +394,7 @@ impl Stage for Wasm {
             {
                 println!("Optimized WASM with wasm-opt");
             } else {
-                println!("wasm-opt not available, skipping optimization");
+                println!("wasm-opt unavailable or failed, skipping optimization");
             }
         }
 
