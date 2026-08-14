@@ -1,164 +1,103 @@
 name: Release
 
 on:
-  release:
-    types: 
-      - edited
-      - published
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  prepare:
-    name: Build release binary
-    runs-on: ubuntu-latest
-    outputs:
-      tag_name: ${{ steps.get_release.outputs.tag_name }}
-      upload_url: ${{ steps.get_release.outputs.upload_url }}
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            archive: tar
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            archive: tar
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            archive: tar
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            archive: zip
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      - name: Get release
-        id: get_release
-        uses: bruceadams/get-release@v1.2.2
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-
-  linux:
-    runs-on: ubuntu-latest
-    needs: prepare
-    strategy:
-      matrix:
-        target:
-          - x86_64-unknown-linux-gnu
-          - x86_64-unknown-linux-musl
-          - arm-unknown-linux-gnueabihf
-          - arm-unknown-linux-musleabi
-          - arm-unknown-linux-musleabihf
-          - aarch64-unknown-linux-gnu
-          - mips-unknown-linux-musl
-          - mipsel-unknown-linux-musl
-      fail-fast: false
-    steps:
-      - name: Install musl tools
-        if: ${{ contains(matrix.target, 'musl') }}
-        run: sudo apt-get install -y musl-tools
-
-      - name: Install arm tools
-        if: ${{ contains(matrix.target, 'arm') }}
-        run: |
-          echo "GNU_PREFIX=arm-linux-gnueabihf-" >> $GITHUB_ENV
-          sudo apt-get install -y binutils-arm-linux-gnueabihf   
-      
-      - name: Install aarch64 tools
-        if: ${{ contains(matrix.target, 'aarch64') }}
-        run: |
-          echo "GNU_PREFIX=aarch64-linux-gnu-" >> $GITHUB_ENV
-          sudo apt-get install -y binutils-aarch64-linux-gnu 
-
-      - uses: actions/checkout@v2
-      - uses: ./.github/actions/cached-toolchain
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
           targets: ${{ matrix.target }}
 
-      - name: Build ${{ matrix.target }}
-        uses: actions-rs/cargo@v1
+      - name: Setup Rust cache
+        uses: Swatinem/rust-cache@v2
         with:
-          command: build
-          args: --release --features=bin --target ${{ matrix.target }}
-          use-cross: true 
+          key: release-${{ matrix.target }}
 
-      - name: Optimize and package binary
-        if: ${{ !contains(matrix.target, 'mips') }}
-        run: |
-          cd target/${{ matrix.target }}/release
-          ${GNU_PREFIX}strip tinysearch
-          chmod +x tinysearch
-          tar -c tinysearch | gzip > tinysearch.tar.gz
+      - name: Build binary
+        run: cargo build --locked --release --features=bin --target ${{ matrix.target }}
 
-      - name: Package binary without optimization
-        if: ${{ contains(matrix.target, 'mips') }}
+      - name: Package binary
+        if: matrix.archive == 'tar'
+        shell: bash
         run: |
-          cd target/${{ matrix.target }}/release
-          chmod +x tinysearch
-          tar -c tinysearch | gzip > tinysearch.tar.gz
+          mkdir -p dist
+          tar -C target/${{ matrix.target }}/release -czf dist/tinysearch-${{ github.ref_name }}-${{ matrix.target }}.tar.gz tinysearch
+
+      - name: Package binary
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist
+          Compress-Archive -Path target/${{ matrix.target }}/release/tinysearch.exe -DestinationPath dist/tinysearch-${{ github.ref_name }}-${{ matrix.target }}.zip
 
       - name: Upload binary
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/upload-artifact@v4
         with:
-          asset_name: tinysearch-${{needs.prepare.outputs.tag_name}}-${{ matrix.target }}.tar.gz
-          asset_path: target/${{ matrix.target }}/release/tinysearch.tar.gz
-          upload_url: ${{needs.prepare.outputs.upload_url}}
-          asset_content_type: application/gzip
-  
-  macos:
-    runs-on: macos-latest
-    needs: prepare
+          name: tinysearch-${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish crate
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          default: true
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Build binary
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --features=bin
-          use-cross: true
-
-      - name: Optimize and package binary
-        run: |
-          cd target/release
-          strip tinysearch
-          chmod +x tinysearch
-          mkdir dmg
-          mv tinysearch dmg/
-          hdiutil create -fs HFS+ -srcfolder dmg -volname tinysearch tinysearch.dmg
-      
-      - name: Upload binary
-        uses: actions/upload-release-asset@v1
+      - name: Publish to crates.io
+        run: cargo publish --locked
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          asset_name: tinysearch-${{needs.prepare.outputs.tag_name}}-macos-x86_64.dmg
-          asset_path: target/release/tinysearch.dmg
-          upload_url: ${{needs.prepare.outputs.upload_url}}
-          asset_content_type: application/octet-stream
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
-  windows:
-    runs-on: windows-latest
-    needs: prepare
-    steps:     
-      - uses: actions/checkout@v2
+  release:
+    name: Publish GitHub release
+    needs: [build, publish]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
 
-      - uses: actions-rs/toolchain@v1
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
         with:
-          profile: minimal
-          toolchain: stable
-          default: true
-
-      - name: Build binary
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --features=bin
-          use-cross: true
-        
-      - name: Upload binary
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          asset_name: tinysearch-${{needs.prepare.outputs.tag_name}}-windows-x86_64.exe
-          asset_path: target/release/tinysearch.exe
-          upload_url: ${{needs.prepare.outputs.upload_url}}
-          asset_content_type: application/octet-stream
+          files: dist/*
+          generate_release_notes: true

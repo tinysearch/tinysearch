@@ -1,0 +1,8 @@
+*
+!Cargo.toml
+!Cargo.lock
+!README.md
+!assets/
+!assets/**
+!src/
+!src/**

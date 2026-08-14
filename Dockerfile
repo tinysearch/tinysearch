@@ -1,62 +1,33 @@
-# Docker tinysearch with deps
-#   - binaryen
+ARG RUST_IMAGE=rust:1.85-alpine
 
-ARG TINY_REPO=https://github.com/tinysearch/tinysearch
-ARG TINY_BRANCH=master
-ARG RUST_IMAGE=rust:alpine
+FROM ${RUST_IMAGE} AS builder
 
-FROM $RUST_IMAGE AS builder
+RUN apk add --no-cache musl-dev \
+    && rustup target add wasm32-unknown-unknown
 
-ARG TINY_REPO
-ARG TINY_BRANCH
+WORKDIR /build/tinysearch
 
-WORKDIR /build
+COPY Cargo.toml Cargo.lock README.md ./
+COPY assets ./assets
+COPY src ./src
 
-# Install dependencies
-RUN apk add --update --no-cache --virtual \
-    .build-deps \
-    musl-dev \
-    openssl-dev \
-    gcc \
-    curl \
-    git \
-    ca-certificates \
-    libc6-compat \
-    binaryen && \
-    ln -s /lib64/ld-linux-x86-64.so.2 /lib/ld64.so.1 
+RUN cargo build --locked --release --features=bin
 
-# Install WASM target
-RUN rustup target add wasm32-unknown-unknown
+FROM ${RUST_IMAGE}
 
-# Clone the repo and build the binary
-RUN git clone --branch "$TINY_BRANCH" "$TINY_REPO" tinysearch && \
-    cd tinysearch && \
-    cargo build --release --features=bin && \
-    cp target/release/tinysearch $CARGO_HOME/bin
-
-FROM $RUST_IMAGE
+RUN apk add --no-cache binaryen musl-dev \
+    && rustup target add wasm32-unknown-unknown
 
 WORKDIR /app
 
-# Install runtime dependencies
-RUN apk add --update --no-cache libc6-compat musl-dev binaryen openssl-dev && \
-    ln -s /lib64/ld-linux-x86-64.so.2 /lib/ld64.so.1
+COPY --from=builder /build/tinysearch/target/release/tinysearch /usr/local/bin/tinysearch
+COPY Cargo.toml Cargo.lock README.md /engine/
+COPY assets /engine/assets
+COPY src /engine/src
 
-# Install WASM target for runtime compilation
-RUN rustup target add wasm32-unknown-unknown
+# Warm the Cargo cache used when tinysearch generates a WASM search engine.
+RUN printf '[{"title":"","body":"","url":""}]' > build.json \
+    && tinysearch --engine-version 'path="/engine"' build.json \
+    && rm -rf build.json wasm_output
 
-# Copy the tinysearch binary and source directory
-COPY --from=builder /usr/local/cargo/bin/tinysearch /usr/local/bin/
-# Copy tinysearch build directory to be used as the engine (see `--engine-version` option below)
-# This is done because we want to use the same image for building and running tinysearch
-# and not depend on crates.io for the engine
-COPY --from=builder /build/tinysearch/ /engine
-
-# Initialize crate cache
-RUN echo '[{"title":"","body":"","url":""}]' > build.json && \
-    tinysearch --engine-version 'path= "/engine"' build.json && \
-    rm -r build.json wasm_output
-
-ENTRYPOINT ["tinysearch"]
-# Use the engine we built above and not the one from crates.io
-CMD ["--engine-version", "path= \"/engine\""]
+ENTRYPOINT ["tinysearch", "--engine-version", "path=\"/engine\""]

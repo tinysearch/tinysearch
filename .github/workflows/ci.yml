@@ -6,14 +6,13 @@ on:
     branches:
       - master
     tags:
-      - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
+      - "v*"
   schedule:
-    # Runs every Thursday at 20:23 GMT to avoid bit rot
+    # Run weekly to catch ecosystem and toolchain regressions.
     - cron: "20 23 * * 4"
-  release:
-    types: 
-      - edited
-      - published
+
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
@@ -31,141 +30,77 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
-      
+          targets: wasm32-unknown-unknown
+
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
         with:
           key: test-${{ runner.os }}
 
-      - name: Install WASM target
-        run: rustup target add wasm32-unknown-unknown
-
       - name: Check formatting
         run: cargo fmt --all -- --check
 
       - name: Run cargo check
-        run: cargo check --all-targets --all-features
+        run: cargo check --locked --all-targets --all-features
 
-      # Ignore clippy lints for now, too noisy
-      # - name: Run clippy
-      #   run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Run clippy
+        run: cargo clippy --locked --all-targets --all-features -- -D warnings
 
       - name: Run tests
-        run: cargo test --all-features
+        run: cargo test --locked --all-features
 
   build:
     name: Build (${{ matrix.os }}, Rust ${{ matrix.rust }})
     runs-on: ${{ matrix.os }}
     strategy:
-        fail-fast: false
-        matrix:
-            os: [ubuntu-latest, windows-latest, macos-latest]
-            rust: [stable, beta]
-            include:
-              - os: ubuntu-latest
-                rust: nightly
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        rust: [stable, beta]
+        include:
+          - os: ubuntu-latest
+            rust: "1.85.0"
+          - os: ubuntu-latest
+            rust: nightly
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.rust }}
+
+      - name: Install WASM target
+        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
+        run: rustup target add wasm32-unknown-unknown
 
       - name: Setup Rust cache
         uses: Swatinem/rust-cache@v2
         with:
           key: build-${{ matrix.os }}-${{ matrix.rust }}
 
-      - name: Install WASM target
-        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
-        run: |
-          rustup target add wasm32-unknown-unknown
-    
-      - name: Install trunk
-        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
-        run: |
-          wget -qO- https://github.com/trunk-rs/trunk/releases/latest/download/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
-          sudo mv trunk /usr/local/bin/
-
       - name: Build and install tinysearch
-        run: cargo install --force --path . --features=bin
+        run: cargo install --locked --force --path . --features=bin
         continue-on-error: ${{ matrix.rust == 'nightly' }}
 
       - name: Build WASM package from test index
         if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
-        run: |
-          mkdir -p wasm_output
-          RUST_LOG=debug tinysearch -m wasm -p wasm_output --engine-version 'path="'$PWD'"' fixtures/index.json
-        continue-on-error: true
-      
-      - name: Build examples
-        if: matrix.os == 'ubuntu-latest' && matrix.rust == 'stable'
-        run: |
-          for example in examples/*; do
-            if [ -d "$example" ]; then
-              (cd "$example" && trunk build index.html) || echo "Failed to build $example";
-            fi
-          done
-        continue-on-error: true
+        run: tinysearch -m wasm -p wasm_output --engine-version "path=\"$GITHUB_WORKSPACE\"" fixtures/index.json
 
-      - name: Generate Docs
+      - name: Generate docs
         if: matrix.rust == 'stable'
-        run: cargo doc --all-features --no-deps
+        run: cargo doc --locked --all-features --no-deps
 
   audit:
-    name: Security Audit
+    name: Security audit
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
 
-      - name: Install cargo-audit
-        run: cargo install cargo-audit
-
-      - name: Run security audit
-        run: cargo audit
-
-  publish:
-    name: Publish
-    needs: [test, build, audit]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup Rust cache
-        uses: Swatinem/rust-cache@v2
-
-      - name: Build release binary
-        run: cargo build --release --features=bin
-
-      - name: Publish (dry run)
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo publish --dry-run
-
-      - name: Publish to crates.io
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo publish
-          
-      - name: Create Github release
-        uses: softprops/action-gh-release@v2
+      - name: Audit dependencies
+        uses: rustsec/audit-check@v2.0.0
         with:
-          files: |
-            target/release/tinysearch
-            target/release/tinysearch.exe
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
