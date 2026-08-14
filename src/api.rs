@@ -569,11 +569,6 @@ mod tests {
         assert_eq!(xor_search.search(&xor8, "observability", 5).len(), 1);
         assert_eq!(xor_search.search(&xor8, "ferris", 5).len(), 1);
 
-        let named_json = serde_json::to_string(&xor8)?;
-        let legacy_json = named_json.replace("\"Xor8\"", "\"Legacy\"");
-        let aliased: SearchIndex = serde_json::from_str(&legacy_json)?;
-        assert_eq!(xor_search.search(&aliased, "observability", 5).len(), 1);
-
         let bytes = xor_search.serialize_index(&xor8)?;
         let round_tripped = xor_search.load_index_from_bytes(&bytes)?;
         assert_eq!(

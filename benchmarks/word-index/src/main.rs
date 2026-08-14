@@ -725,13 +725,13 @@ fn storage_comparison_rows(
     indexes: &[inverted::ExactInvertedIndex],
 ) -> Result<Vec<StorageRow>> {
     let exact_xor = bincode::serde::encode_to_vec(exact_filters, bincode::config::legacy())
-        .context("failed to serialize exact Xor8 filters with production legacy config")?;
+        .context("failed to serialize exact Xor8 filters with the production config")?;
     let xor_production_vocabulary =
         production_storage_payload(exact_filters, &corpus.production_prefix_vocabulary)?;
     let xor_full_vocabulary = production_storage_payload(exact_filters, &corpus.vocabulary)?;
 
     let mut payloads = vec![
-        ("Xor8 exact filters only (legacy)".to_owned(), exact_xor),
+        ("Xor8 exact filters only".to_owned(), exact_xor),
         (
             "Xor8 + production-shaped vocabulary/envelope".to_owned(),
             xor_production_vocabulary,
@@ -767,7 +767,7 @@ fn production_storage_payload(
     let vocabulary = vocabulary.join("\n");
     let payload = bincode::serde::encode_to_vec((filters, vocabulary), bincode::config::legacy())
         .context(
-        "failed to serialize Xor8 filters and vocabulary with production legacy config",
+        "failed to serialize Xor8 filters and vocabulary with the production config",
     )?;
     let mut serialized = Vec::with_capacity(PRODUCTION_STORAGE_MAGIC.len() + payload.len());
     serialized.extend_from_slice(PRODUCTION_STORAGE_MAGIC);
@@ -833,7 +833,7 @@ fn xor_growth(posts: &[BTreeSet<String>]) -> Result<XorResults> {
         let entry_count = expanded.iter().map(Vec::len).sum();
         let filters: Vec<DocumentFilter> = expanded.iter().map(DocumentFilter::from).collect();
         let serialized = bincode::serde::encode_to_vec(&filters, bincode::config::legacy())
-            .context("failed to serialize Xor8 filters with production legacy config")?;
+            .context("failed to serialize Xor8 filters with the production config")?;
         let gzip_bytes = compressed_size("gzip", &["-9", "-c"], &serialized)?;
         let brotli_bytes = compressed_size("brotli", &["-q", "11", "-c"], &serialized)?;
         measurements.push((label, entry_count, serialized, gzip_bytes, brotli_bytes));
@@ -1033,7 +1033,7 @@ fn print_report(report: Report<'_>) {
         );
     }
 
-    println!("\n## Per-document Xor8 prefix checkpoints (production legacy bincode)\n");
+    println!("\n## Per-document Xor8 prefix checkpoints (production bincode format)\n");
     println!(
         "| checkpoints | total filter entries | serialized bytes | gzip -9 | Brotli q11 | growth (bytes) | growth (%) |"
     );
@@ -1071,7 +1071,7 @@ fn print_report(report: Report<'_>) {
         "- The simple inverted row uses `Vec<(String, Vec<u32>)>` with bincode standard encoding. The compact row stores newline-separated vocabulary followed by varint list lengths and delta-coded document IDs; query offsets are rebuilt while decoding and are not serialized."
     );
     println!(
-        "- Xor8 rows serialize one `HashProxy<String, DefaultHasher, Xor8>` per document using the same bincode legacy configuration as production. PostIds are intentionally excluded from both Xor and inverted rows."
+        "- Xor8 rows serialize one `HashProxy<String, DefaultHasher, Xor8>` per document using the same bincode 1-compatible configuration as production. PostIds are intentionally excluded from both Xor and inverted rows."
     );
     println!(
         "- Query timings include materializing result vectors. They are in-process wall-clock p50/p95 measurements, not Criterion confidence intervals."

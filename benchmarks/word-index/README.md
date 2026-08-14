@@ -71,11 +71,11 @@ Only 22 of 17,120 real prefixes (0.13%) exceed 32 completions, which is why the 
 
 ### PostId-independent total storage comparison
 
-The production-shaped baseline serializes exact Xor8 filters and the discarded 6,954-term vocabulary experiment with bincode legacy configuration and its `tinysearch\x01` envelope. PostIds are excluded from every row so the table compares only the replaceable search-index component.
+The production-shaped baseline serializes exact Xor8 filters and the discarded 6,954-term vocabulary experiment with the bincode 1-compatible production configuration and its `tinysearch\x01` envelope. PostIds are excluded from every row so the table compares only the replaceable search-index component.
 
 | representation | bytes | gzip -9 | Brotli q11 | uncompressed delta vs Xor + production-shaped vocabulary |
 |---|---:|---:|---:|---:|
-| Xor8 exact filters only, legacy | 31,193 | 27,030 | 25,666 | -59,340 |
+| Xor8 exact filters only | 31,193 | 27,030 | 25,666 | -59,340 |
 | Xor8 + production-shaped vocabulary/envelope | 90,533 | 50,136 | 44,974 | 0 |
 | Xor8 + full vocabulary/envelope | 92,520 | 51,114 | 45,782 | +1,987 |
 | inverted bincode standard | 90,870 | 51,499 | 45,219 | +337 |
@@ -98,7 +98,7 @@ The complete artifact grows much less than the standalone index component sugges
 
 ### Per-document Xor8 prefix checkpoints
 
-This corrects the previous table, which accidentally used bincode standard encoding. All rows below serialize one `HashProxy<String, DefaultHasher, Xor8>` per document with the same bincode legacy configuration used by production.
+This corrects the previous table, which accidentally used bincode standard encoding. All rows below serialize one `HashProxy<String, DefaultHasher, Xor8>` per document with the same bincode 1-compatible configuration used by production.
 
 | checkpoints | total filter entries | serialized bytes | gzip -9 | Brotli q11 | growth (bytes) | growth (%) |
 |---|---:|---:|---:|---:|---:|---:|
@@ -121,7 +121,7 @@ This corrects the previous table, which accidentally used bincode standard encod
 - The replacement inverted index deliberately includes every exact title/body term, including terms of three characters or fewer, because it replaces exact Xor membership as well as prefix expansion.
 - The discarded Xor-plus-vocabulary experiment had different responsibilities. It contained body/metadata terms absent from the same post's title, then excluded terms with three or fewer characters. The “production-shaped” comparison reproduces those body-minus-title and `>3` rules; there is no metadata in this corpus.
 - Raw vocabulary serialization is one sorted term per line with a final newline. The compact inverted format stores a four-byte magic, varint term count, varint vocabulary-byte length, the raw newline vocabulary, then a varint posting count and delta-coded document IDs for each term. Query offsets are rebuilt while decoding and are not serialized.
-- The simple inverted representation is exactly `Vec<(String, Vec<u32>)>` encoded with bincode 2 standard configuration. Xor8 comparisons use bincode 2 legacy configuration because that is production's compatibility format.
+- The simple inverted representation is exactly `Vec<(String, Vec<u32>)>` encoded with bincode 2 standard configuration. Xor8 comparisons use bincode's version 1-compatible configuration because that is the production format.
 - Exact-index validation checks all exact postings and both uncapped and cap32 results for every real 3–8-character prefix. Exact prefix unions have no false positives. The harness does not estimate Xor8's empirical false-positive rate; its motivation is that up to 32 probabilistic probes amplify that known risk.
 - Prefix timings include materializing sorted result vectors. They are in-process p50/p95 wall-clock measurements, not Criterion confidence intervals; compare relative values and rerun on the deployment target.
 - Compression pipes the exact serialized bytes through `gzip -9 -c` and `brotli -q 11 -c`.
