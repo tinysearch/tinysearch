@@ -97,15 +97,15 @@
 <body>
     <div class="container">
         <h1>TinySearch WASM Demo</h1>
-        <p>This demo shows TinySearch running in WebAssembly. Try searching for terms like "rust", "javascript", or "blog".</p>
+        <p>This demo shows TinySearch running in WebAssembly. Results update as you type. Try terms like "rust", "javascript", or "blog".</p>
         
         <div class="search-box">
-            <input type="text" id="searchInput" placeholder="Enter your search query..." />
-            <button onclick="performSearch()">Search</button>
+            <input type="text" id="searchInput" placeholder="Start typing to search..." aria-label="Search" aria-controls="results" />
+            <button type="button" onclick="performSearch()">Search</button>
         </div>
         
-        <div id="status" class="status">Loading search engine...</div>
-        <div id="results" class="results"></div>
+        <div id="status" class="status" role="status" aria-live="polite">Loading search engine...</div>
+        <div id="results" class="results" aria-live="polite"></div>
     </div>
 
     <script>
@@ -133,7 +133,7 @@
                     throw new Error('Required WASM exports not found');
                 }
                 
-                document.getElementById('status').textContent = 'Search engine ready! Try entering a query above.';
+                document.getElementById('status').textContent = 'Search engine ready. Start typing to see results.';
                 document.getElementById('searchInput').disabled = false;
                 document.getElementById('searchInput').focus();
                 
@@ -256,15 +256,16 @@
             }
         }
         
-        // Enter key support
-        document.getElementById('searchInput').addEventListener('keypress', function(event) {
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('input', performSearch);
+        searchInput.addEventListener('keydown', function(event) {
             if (event.key === 'Enter') {
                 performSearch();
             }
         });
         
         // Initialize search engine
-        document.getElementById('searchInput').disabled = true;
+        searchInput.disabled = true;
         initializeSearch();
     </script>
 </body>

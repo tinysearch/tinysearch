@@ -90,6 +90,11 @@ fn test_cli_wasm_mode() {
 
     assert!(has_wasm, "No .wasm file was generated");
     assert!(has_js, "No .js file was generated");
+
+    let demo = std::fs::read_to_string(temp_dir.path().join("demo.html"))
+        .expect("Failed to read generated demo");
+    assert!(demo.contains("addEventListener('input', performSearch)"));
+    assert!(demo.contains("Results update as you type"));
 }
 
 #[test]
