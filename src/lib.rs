@@ -171,6 +171,7 @@ pub enum IndexKind {
 
 impl IndexKind {
     /// Returns the selected built-in backend.
+    #[must_use]
     pub fn backend(self) -> &'static dyn IndexBackend {
         static EXACT: ExactIndexBackend = ExactIndexBackend;
         static XOR8: Xor8IndexBackend = Xor8IndexBackend;
@@ -266,6 +267,7 @@ impl IndexBackend for Xor8IndexBackend {
 
 impl SearchIndex {
     /// Returns the number of indexed posts.
+    #[must_use]
     pub fn len(&self) -> usize {
         match &self.data {
             SearchIndexData::Exact(index) => index.posts.len(),
@@ -274,6 +276,7 @@ impl SearchIndex {
     }
 
     /// Returns whether the index contains no posts.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
@@ -336,7 +339,11 @@ impl Default for SearchSchema {
 
 #[cfg(feature = "bin")]
 impl SearchSchema {
-    /// Load schema from tinysearch.toml file, falling back to defaults if not found
+    /// Load schema from tinysearch.toml file, falling back to defaults if not found.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the configuration cannot be read, parsed, or validated.
     pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Self, String> {
         let toml_path = path.as_ref().join("tinysearch.toml");
 
@@ -354,7 +361,11 @@ impl SearchSchema {
         Ok(config.schema)
     }
 
-    /// Validate the schema configuration
+    /// Validate the schema configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if required fields are empty or fields are duplicated.
     pub fn validate(&self) -> Result<(), String> {
         if self.indexed_fields.is_empty() {
             return Err("indexed_fields cannot be empty".to_string());
@@ -382,7 +393,8 @@ impl SearchSchema {
         Ok(())
     }
 
-    /// Get all fields that should be processed from JSON (indexed + metadata + url)
+    /// Get all fields that should be processed from JSON (indexed + metadata + URL).
+    #[must_use]
     pub fn all_fields(&self) -> Vec<String> {
         let mut fields = self.indexed_fields.clone();
         fields.extend(self.metadata_fields.clone());
@@ -473,12 +485,22 @@ fn encode_xor8_index(index: &Xor8Index) -> Result<Vec<u8>, StorageError> {
 
 impl Storage {
     /// Serializes exact indexes with compact delta postings and uses the
-    /// historical bincode format for Xor8 indexes.
+    /// bincode 1-compatible format for Xor8 indexes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if encoding fails or the index violates its storage
+    /// invariants.
     pub fn to_bytes(&self) -> Result<Vec<u8>, StorageError> {
         encode_search_index(&self.filters)
     }
 
     /// Deserializes exact and Xor8 indexes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the bytes cannot be decoded or contain a malformed
+    /// compact index.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, StorageError> {
         if bytes.starts_with(STORAGE_MAGIC) {
             return decode_exact_index(bytes).map(|index| Self {
@@ -956,6 +978,7 @@ fn tokenize(text: &str) -> Vec<String> {
 ///
 /// # Returns
 /// Vector of `PostId` references, sorted by relevance score (highest first)
+#[must_use]
 pub fn search<'index>(
     index: &'index SearchIndex,
     query: &str,

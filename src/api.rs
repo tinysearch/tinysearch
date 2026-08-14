@@ -179,6 +179,7 @@ impl TinySearch {
     ///
     /// let search = TinySearch::new();
     /// ```
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             custom_stopwords: None,
@@ -214,9 +215,8 @@ impl TinySearch {
 
     /// Select the built-in index backend.
     ///
-    /// Exact indexing is the default. [`IndexKind::Xor8`] produces the smaller
-    /// historical filter format, with probabilistic membership and exact-word
-    /// body and metadata matching.
+    /// Exact indexing is the default. [`IndexKind::Xor8`] produces a smaller
+    /// probabilistic index with exact-word body and metadata matching.
     ///
     /// ```rust
     /// use tinysearch::{IndexKind, TinySearch};
@@ -229,7 +229,7 @@ impl TinySearch {
         self
     }
 
-    /// Parse JSON string containing posts into a Vec<BasicPost>
+    /// Parse a JSON string containing posts into a `Vec<BasicPost>`.
     ///
     /// This method parses JSON in the format expected by tinysearch, where each
     /// post is an object with `title`, `url`, and optionally `body` and `meta` fields.
@@ -240,6 +240,10 @@ impl TinySearch {
     /// # Returns
     /// * `Ok(Vec<BasicPost>)` - Successfully parsed posts
     /// * `Err(serde_json::Error)` - JSON parsing error
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `json_str` is not a valid array of posts.
     ///
     /// # Example
     ///
@@ -284,6 +288,11 @@ impl TinySearch {
     /// * `Ok(SearchIndex)` - Successfully generated search index
     /// * `Err(Box<dyn std::error::Error>)` - Index generation error
     ///
+    /// # Errors
+    ///
+    /// The built-in backends are currently infallible. The `Result` is retained
+    /// for API compatibility and future fallible indexing backends.
+    ///
     /// # Example
     ///
     /// ```rust
@@ -310,6 +319,11 @@ impl TinySearch {
     }
 
     /// Build an index using a custom backend.
+    ///
+    /// # Errors
+    ///
+    /// Index preparation is currently infallible. The `Result` is retained for
+    /// API compatibility and future fallible indexing backends.
     pub fn build_index_with<P: Post>(
         &self,
         posts: &[P],
@@ -359,6 +373,7 @@ impl TinySearch {
     ///     println!("Found: {} at {}", result.title, result.url);
     /// }
     /// ```
+    #[must_use]
     pub fn search<'index>(
         &self,
         index: &'index SearchIndex,
@@ -384,11 +399,20 @@ impl TinySearch {
     /// let index = search.build_index(&posts).unwrap();
     /// let index_bytes = search.serialize_index(&index).unwrap();
     /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the selected index representation cannot be encoded
+    /// or violates its storage invariants.
     pub fn serialize_index(&self, index: &SearchIndex) -> Result<Vec<u8>, StorageError> {
         crate::encode_search_index(index)
     }
 
     /// Build and serialize an index in one step.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if index construction or serialization fails.
     #[deprecated(note = "call build_index, then serialize_index")]
     pub fn build_and_serialize_index<P: Post>(
         &self,
@@ -410,6 +434,10 @@ impl TinySearch {
     /// # Returns
     /// * `Ok(SearchIndex)` - Successfully loaded search index
     /// * `Err(StorageError)` - Deserialization error
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `bytes` contain malformed or unsupported index data.
     ///
     /// # Example
     ///

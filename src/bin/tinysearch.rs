@@ -1,3 +1,5 @@
+//! Command-line interface for building and querying tinysearch indexes.
+
 #![cfg(feature = "bin")]
 #[macro_use]
 extern crate log;
@@ -8,7 +10,7 @@ use utils::index;
 use utils::storage;
 
 use anyhow::{Context, bail};
-pub use anyhow::{Error, Result};
+use anyhow::{Error, Result};
 use argh::FromArgs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -35,7 +37,7 @@ enum DirOrTemp {
 }
 
 impl DirOrTemp {
-    pub fn path(&self) -> PathBuf {
+    fn path(&self) -> PathBuf {
         match self {
             Self::Path(p) => p.clone(),
             Self::Temp(p) => p.path().to_path_buf(),
@@ -424,7 +426,13 @@ impl Stage for Wasm {
     }
 }
 
-pub fn main() -> Result<(), Error> {
+/// Runs tinysearch using command-line arguments.
+///
+/// # Errors
+///
+/// Returns an error if the selected mode cannot parse its inputs or complete
+/// its build operation.
+fn main() -> Result<(), Error> {
     let opt: Opt = argh::from_env();
 
     if opt.version {
@@ -453,7 +461,12 @@ pub fn main() -> Result<(), Error> {
     })
 }
 
-pub fn run_output(cmd: &mut Command) -> Result<String, Error> {
+/// Runs a child process and returns its standard output.
+///
+/// # Errors
+///
+/// Returns an error if the process cannot be started or exits unsuccessfully.
+fn run_output(cmd: &mut Command) -> Result<String, Error> {
     println!("running {cmd:?}");
     let output = cmd
         .stderr(Stdio::inherit())

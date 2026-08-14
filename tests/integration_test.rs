@@ -1,3 +1,5 @@
+//! End-to-end tests for the tinysearch command-line interface.
+
 #![allow(
     clippy::expect_used,
     clippy::unwrap_used,
