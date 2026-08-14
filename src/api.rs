@@ -4,14 +4,13 @@
 //! as a library. The API is designed around the [`Post`] trait and [`TinySearch`] struct
 //! which provide flexible and ergonomic access to search index generation and querying.
 
-use bincode::Error as BincodeError;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::convert::From;
 use strip_markdown::strip_markdown;
 use xorf::{HashProxy, Xor8};
 
-use crate::{PostId, SearchIndex, Storage};
+use crate::{PostId, SearchIndex, Storage, StorageError};
 
 /// Trait that types must implement to be used as posts in tinysearch
 ///
@@ -390,7 +389,7 @@ impl TinySearch {
     ///
     /// # Returns
     /// * `Ok(SearchIndex)` - Successfully loaded search index
-    /// * `Err(BincodeError)` - Deserialization error
+    /// * `Err(StorageError)` - Deserialization error
     ///
     /// # Example
     ///
@@ -415,7 +414,7 @@ impl TinySearch {
     /// let index = search.load_index_from_bytes(&index_bytes).unwrap();
     /// let results = search.search(&index, "content", 10);
     /// ```
-    pub fn load_index_from_bytes(&self, bytes: &[u8]) -> Result<SearchIndex, BincodeError> {
+    pub fn load_index_from_bytes(&self, bytes: &[u8]) -> Result<SearchIndex, StorageError> {
         let storage = Storage::from_bytes(bytes)?;
         Ok(storage.filters)
     }
@@ -504,10 +503,11 @@ impl TinySearch {
         posts
             .iter()
             .map(|post| {
-                let meta_str = if post.meta().is_empty() {
+                let metadata = post.meta();
+                let meta_str = if metadata.is_empty() {
                     String::new()
                 } else {
-                    serde_json::to_string(&post.meta()).unwrap_or_default()
+                    serde_json::to_string(&metadata).unwrap_or_default()
                 };
                 let post_id = PostId {
                     title: post.title().to_string(),

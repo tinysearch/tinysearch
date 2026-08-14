@@ -9,6 +9,6 @@ pub struct Post {
 
 pub type Posts = Vec<Post>;
 
-pub fn read(raw: String) -> Result<Posts, serde_json::Error> {
-    serde_json::from_str(&raw)
+pub fn read(raw: &str) -> Result<Posts, serde_json::Error> {
+    serde_json::from_str(raw)
 }

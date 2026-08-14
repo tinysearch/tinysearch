@@ -40,7 +40,6 @@
 
 pub mod api;
 
-use bincode::Error as BincodeError;
 use serde::{Deserialize, Serialize};
 use std::cmp::Reverse;
 use std::collections::hash_map::DefaultHasher;
@@ -191,6 +190,34 @@ pub struct Storage {
     pub filters: SearchIndex,
 }
 
+/// Error returned while encoding or decoding search index storage.
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum StorageError {
+    /// The search index could not be encoded.
+    Encode(bincode::error::EncodeError),
+    /// The search index could not be decoded.
+    Decode(bincode::error::DecodeError),
+}
+
+impl std::fmt::Display for StorageError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Encode(error) => write!(formatter, "failed to encode search index: {error}"),
+            Self::Decode(error) => write!(formatter, "failed to decode search index: {error}"),
+        }
+    }
+}
+
+impl std::error::Error for StorageError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Encode(error) => Some(error),
+            Self::Decode(error) => Some(error),
+        }
+    }
+}
+
 impl From<SearchIndex> for Storage {
     fn from(filters: SearchIndex) -> Self {
         Self { filters }
@@ -212,16 +239,48 @@ impl Score for HashProxy<String, DefaultHasher, Xor8> {
 }
 
 impl Storage {
-    /// Serializes the storage to bytes using bincode
-    pub fn to_bytes(&self) -> Result<Vec<u8>, BincodeError> {
-        let encoded: Vec<u8> = bincode::serialize(&self)?;
-        Ok(encoded)
+    /// Serializes the storage to bytes using bincode's legacy configuration.
+    ///
+    /// The legacy configuration preserves compatibility with indexes created by
+    /// tinysearch versions that used bincode 1.
+    pub fn to_bytes(&self) -> Result<Vec<u8>, StorageError> {
+        bincode::serde::encode_to_vec(&self.filters, bincode::config::legacy())
+            .map_err(StorageError::Encode)
     }
 
-    /// Deserializes storage from bytes using bincode
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, BincodeError> {
-        let decoded: SearchIndex = bincode::deserialize(bytes)?;
-        Ok(Self { filters: decoded })
+    /// Deserializes storage from bytes using bincode's legacy configuration.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, StorageError> {
+        let (filters, _) = bincode::serde::decode_from_slice(bytes, bincode::config::legacy())
+            .map_err(StorageError::Decode)?;
+        Ok(Self { filters })
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod storage_tests {
+    use super::{Storage, StorageError};
+    use xorf::Filter;
+
+    #[test]
+    fn empty_index_keeps_bincode_one_wire_format() -> Result<(), StorageError> {
+        let bytes = Storage::from(Vec::new()).to_bytes()?;
+        assert_eq!(bytes, [0_u8; 8]);
+        assert!(Storage::from_bytes(&bytes)?.filters.is_empty());
+        Ok(())
+    }
+
+    #[test]
+    fn reads_index_written_by_bincode_one_and_xorf_0_11() -> Result<(), StorageError> {
+        let bytes = include_bytes!("testdata/legacy-storage-v0.10.bin");
+        let storage = Storage::from_bytes(bytes)?;
+        assert_eq!(storage.filters.len(), 1);
+        let (post, filter) = &storage.filters[0];
+
+        assert_eq!(post.title, "Legacy index");
+        assert_eq!(post.url, "/legacy");
+        assert!(filter.contains(&"legacy".to_string()));
+        Ok(())
     }
 }
 

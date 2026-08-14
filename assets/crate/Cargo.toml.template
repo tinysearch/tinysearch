@@ -7,8 +7,8 @@ version = "0.10.0"
 edition = "2024"
 rust-version = "1.85"
 description = "A tiny search engine for static websites"
-license = "Apache-2.0/MIT"
-documentation = "https://github.com/mre/tinysearch/blob/master/README.md"
+license = "Apache-2.0 OR MIT"
+documentation = "https://docs.rs/tinysearch"
 homepage = "https://github.com/mre/tinysearch"
 
 [lib]
@@ -17,11 +17,6 @@ crate-type = ["cdylib"]
 [dependencies]
 tinysearch = "THIS_VALUE_SHOULD_BE_FILLED"
 serde_json = "1.0"
-
-[dependencies.xorf]
-version = "0.11.0"
-default-features = false
-features = ["serde"]
 
 [workspace]
 members = []
