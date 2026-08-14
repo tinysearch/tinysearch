@@ -409,7 +409,7 @@ pub enum StorageError {
     /// The search index could not be decoded.
     Decode(bincode::error::DecodeError),
     /// The compact index data is malformed.
-    InvalidData(&'static str),
+    MalformedIndex(&'static str),
 }
 
 impl std::fmt::Display for StorageError {
@@ -417,7 +417,7 @@ impl std::fmt::Display for StorageError {
         match self {
             Self::Encode(error) => write!(formatter, "failed to encode search index: {error}"),
             Self::Decode(error) => write!(formatter, "failed to decode search index: {error}"),
-            Self::InvalidData(error) => write!(formatter, "invalid search index: {error}"),
+            Self::MalformedIndex(reason) => write!(formatter, "malformed search index: {reason}"),
         }
     }
 }
@@ -427,7 +427,7 @@ impl std::error::Error for StorageError {
         match self {
             Self::Encode(error) => Some(error),
             Self::Decode(error) => Some(error),
-            Self::InvalidData(_) => None,
+            Self::MalformedIndex(_) => None,
         }
     }
 }
@@ -461,12 +461,14 @@ impl Score for HashProxy<String, DefaultHasher, Xor8> {
 
 pub(crate) fn encode_search_index(index: &SearchIndex) -> Result<Vec<u8>, StorageError> {
     match &index.data {
-        SearchIndexData::Exact(index) => encode_exact_index(index),
-        SearchIndexData::Xor8(index) => {
-            bincode::serde::encode_to_vec(&index.entries, bincode::config::legacy())
-                .map_err(StorageError::Encode)
-        }
+        SearchIndexData::Exact(exact) => encode_exact_index(exact),
+        SearchIndexData::Xor8(xor8) => encode_xor8_index(xor8),
     }
+}
+
+fn encode_xor8_index(index: &Xor8Index) -> Result<Vec<u8>, StorageError> {
+    bincode::serde::encode_to_vec(&index.entries, bincode::config::legacy())
+        .map_err(StorageError::Encode)
 }
 
 impl Storage {
@@ -502,7 +504,7 @@ fn encode_exact_index(index: &ExactIndex) -> Result<Vec<u8>, StorageError> {
         || index.terms.windows(2).any(|pair| pair[0] >= pair[1])
         || index.terms.iter().any(|term| term.contains('\n'))
     {
-        return Err(StorageError::InvalidData(
+        return Err(StorageError::MalformedIndex(
             "terms and postings must be aligned, sorted, and newline-free",
         ));
     }
@@ -524,13 +526,15 @@ fn encode_exact_index(index: &ExactIndex) -> Result<Vec<u8>, StorageError> {
 
     for postings in &index.postings {
         if postings.is_empty() {
-            return Err(StorageError::InvalidData("posting lists must not be empty"));
+            return Err(StorageError::MalformedIndex(
+                "posting lists must not be empty",
+            ));
         }
         write_varint(&mut bytes, postings.len());
         let mut previous = 0_usize;
         for (position, &document) in postings.iter().enumerate() {
             if document >= index.posts.len() {
-                return Err(StorageError::InvalidData(
+                return Err(StorageError::MalformedIndex(
                     "posting document is out of range",
                 ));
             }
@@ -540,7 +544,7 @@ fn encode_exact_index(index: &ExactIndex) -> Result<Vec<u8>, StorageError> {
                 document
                     .checked_sub(previous)
                     .filter(|delta| *delta > 0)
-                    .ok_or(StorageError::InvalidData(
+                    .ok_or(StorageError::MalformedIndex(
                         "posting lists must be strictly increasing",
                     ))?
             };
@@ -552,79 +556,14 @@ fn encode_exact_index(index: &ExactIndex) -> Result<Vec<u8>, StorageError> {
 }
 
 fn decode_exact_index(bytes: &[u8]) -> Result<ExactIndex, StorageError> {
-    let mut cursor = STORAGE_MAGIC.len();
-    let posts_len = read_varint(bytes, &mut cursor)?;
-    let posts_end = cursor
-        .checked_add(posts_len)
-        .ok_or(StorageError::InvalidData("post payload length overflowed"))?;
-    let posts_bytes = bytes
-        .get(cursor..posts_end)
-        .ok_or(StorageError::InvalidData(
-            "post payload extends beyond the index",
-        ))?;
-    let (posts, consumed) = bincode::serde::decode_from_slice::<Vec<PostId>, _>(
-        posts_bytes,
-        bincode::config::standard(),
-    )
-    .map_err(StorageError::Decode)?;
-    if consumed != posts_bytes.len() {
-        return Err(StorageError::InvalidData("post payload has trailing bytes"));
-    }
+    let payload = decode_exact_header(bytes)?;
+    let mut cursor = 0;
+    let posts = decode_posts(payload, &mut cursor)?;
+    let terms = decode_vocabulary(payload, &mut cursor)?;
+    let postings = decode_postings(payload, &mut cursor, terms.len(), posts.len())?;
 
-    cursor = posts_end;
-    let term_count = read_varint(bytes, &mut cursor)?;
-    let vocabulary_len = read_varint(bytes, &mut cursor)?;
-    let vocabulary_end = cursor
-        .checked_add(vocabulary_len)
-        .ok_or(StorageError::InvalidData("vocabulary length overflowed"))?;
-    let vocabulary = bytes
-        .get(cursor..vocabulary_end)
-        .ok_or(StorageError::InvalidData(
-            "vocabulary extends beyond the index",
-        ))?;
-    let vocabulary = std::str::from_utf8(vocabulary)
-        .map_err(|_error| StorageError::InvalidData("vocabulary is not valid UTF-8"))?;
-    let terms: Vec<String> = vocabulary.lines().map(String::from).collect();
-    if terms.len() != term_count || !terms.windows(2).all(|pair| pair[0] < pair[1]) {
-        return Err(StorageError::InvalidData(
-            "vocabulary must be sorted, unique, and match its term count",
-        ));
-    }
-
-    cursor = vocabulary_end;
-    let mut postings = Vec::with_capacity(term_count);
-    for _ in 0..term_count {
-        let posting_count = read_varint(bytes, &mut cursor)?;
-        let remaining_bytes = bytes.len().saturating_sub(cursor);
-        if posting_count == 0 || posting_count > posts.len() || posting_count > remaining_bytes {
-            return Err(StorageError::InvalidData(
-                "posting count is invalid for this index",
-            ));
-        }
-        let mut documents = Vec::with_capacity(posting_count);
-        let mut previous = 0_usize;
-        for position in 0..posting_count {
-            let delta = read_varint(bytes, &mut cursor)?;
-            if position > 0 && delta == 0 {
-                return Err(StorageError::InvalidData(
-                    "posting documents must be strictly increasing",
-                ));
-            }
-            let document = previous
-                .checked_add(delta)
-                .ok_or(StorageError::InvalidData("posting document overflowed"))?;
-            if document >= posts.len() {
-                return Err(StorageError::InvalidData(
-                    "posting document is out of range",
-                ));
-            }
-            documents.push(document);
-            previous = document;
-        }
-        postings.push(documents);
-    }
-    if cursor != bytes.len() {
-        return Err(StorageError::InvalidData("index has trailing bytes"));
+    if cursor != payload.len() {
+        return Err(StorageError::MalformedIndex("index has trailing bytes"));
     }
 
     Ok(ExactIndex {
@@ -632,6 +571,119 @@ fn decode_exact_index(bytes: &[u8]) -> Result<ExactIndex, StorageError> {
         terms,
         postings,
     })
+}
+
+fn decode_exact_header(bytes: &[u8]) -> Result<&[u8], StorageError> {
+    bytes
+        .strip_prefix(STORAGE_MAGIC)
+        .ok_or(StorageError::MalformedIndex(
+            "compact index header is missing",
+        ))
+}
+
+fn decode_posts(input: &[u8], cursor: &mut usize) -> Result<Vec<PostId>, StorageError> {
+    let section_len = read_varint(input, cursor)?;
+    let section = take_section(
+        input,
+        cursor,
+        section_len,
+        "post payload length overflowed",
+        "post payload extends beyond the index",
+    )?;
+    let (posts, consumed) =
+        bincode::serde::decode_from_slice::<Vec<PostId>, _>(section, bincode::config::standard())
+            .map_err(StorageError::Decode)?;
+    if consumed != section.len() {
+        return Err(StorageError::MalformedIndex(
+            "post payload has trailing bytes",
+        ));
+    }
+    Ok(posts)
+}
+
+fn decode_vocabulary(input: &[u8], cursor: &mut usize) -> Result<Vec<String>, StorageError> {
+    let term_count = read_varint(input, cursor)?;
+    let section_len = read_varint(input, cursor)?;
+    let section = take_section(
+        input,
+        cursor,
+        section_len,
+        "vocabulary length overflowed",
+        "vocabulary extends beyond the index",
+    )?;
+    let vocabulary = std::str::from_utf8(section)
+        .map_err(|_error| StorageError::MalformedIndex("vocabulary is not valid UTF-8"))?;
+    let terms: Vec<String> = vocabulary.lines().map(String::from).collect();
+    if terms.len() != term_count || !terms.windows(2).all(|pair| pair[0] < pair[1]) {
+        return Err(StorageError::MalformedIndex(
+            "vocabulary must be sorted, unique, and match its term count",
+        ));
+    }
+    Ok(terms)
+}
+
+fn decode_postings(
+    input: &[u8],
+    cursor: &mut usize,
+    term_count: usize,
+    document_count: usize,
+) -> Result<Vec<Vec<usize>>, StorageError> {
+    (0..term_count)
+        .map(|_| decode_posting_list(input, cursor, document_count))
+        .collect()
+}
+
+fn decode_posting_list(
+    input: &[u8],
+    cursor: &mut usize,
+    document_count: usize,
+) -> Result<Vec<usize>, StorageError> {
+    let posting_count = read_varint(input, cursor)?;
+    let remaining_bytes = input.len().saturating_sub(*cursor);
+    if posting_count == 0 || posting_count > document_count || posting_count > remaining_bytes {
+        return Err(StorageError::MalformedIndex(
+            "posting count is invalid for this index",
+        ));
+    }
+
+    let mut documents = Vec::with_capacity(posting_count);
+    let mut previous = 0_usize;
+    for position in 0..posting_count {
+        let delta = read_varint(input, cursor)?;
+        if position > 0 && delta == 0 {
+            return Err(StorageError::MalformedIndex(
+                "posting documents must be strictly increasing",
+            ));
+        }
+        let document = previous
+            .checked_add(delta)
+            .ok_or(StorageError::MalformedIndex("posting document overflowed"))?;
+        if document >= document_count {
+            return Err(StorageError::MalformedIndex(
+                "posting document is out of range",
+            ));
+        }
+        documents.push(document);
+        previous = document;
+    }
+    Ok(documents)
+}
+
+fn take_section<'input>(
+    input: &'input [u8],
+    cursor: &mut usize,
+    length: usize,
+    overflow_message: &'static str,
+    bounds_message: &'static str,
+) -> Result<&'input [u8], StorageError> {
+    let end = (*cursor)
+        .checked_add(length)
+        .ok_or(StorageError::MalformedIndex(overflow_message))?;
+    let section = input
+        .get(*cursor..end)
+        .ok_or(StorageError::MalformedIndex(bounds_message))?;
+    *cursor = end;
+    Ok(section)
 }
 
 fn write_varint(output: &mut Vec<u8>, mut value: usize) {
@@ -648,15 +700,15 @@ fn read_varint(input: &[u8], cursor: &mut usize) -> Result<usize, StorageError> 
         let byte = input
             .get(*cursor)
             .copied()
-            .ok_or(StorageError::InvalidData(
+            .ok_or(StorageError::MalformedIndex(
                 "index contains a truncated varint",
             ))?;
         *cursor = (*cursor)
             .checked_add(1)
-            .ok_or(StorageError::InvalidData("varint cursor overflowed"))?;
+            .ok_or(StorageError::MalformedIndex("varint cursor overflowed"))?;
         let payload = usize::from(byte & 0x7f);
         if payload > (usize::MAX >> shift) {
-            return Err(StorageError::InvalidData(
+            return Err(StorageError::MalformedIndex(
                 "varint exceeds the platform range",
             ));
         }
@@ -665,7 +717,7 @@ fn read_varint(input: &[u8], cursor: &mut usize) -> Result<usize, StorageError> 
             return Ok(value);
         }
     }
-    Err(StorageError::InvalidData(
+    Err(StorageError::MalformedIndex(
         "index contains an unterminated varint",
     ))
 }
@@ -678,6 +730,13 @@ mod storage_tests {
         Storage, StorageError, search, write_varint,
     };
     use xorf::Filter;
+
+    #[test]
+    fn malformed_index_error_has_no_source() {
+        let error = StorageError::MalformedIndex("bad section");
+        assert_eq!(error.to_string(), "malformed search index: bad section");
+        assert!(std::error::Error::source(&error).is_none());
+    }
 
     #[test]
     fn empty_index_keeps_bincode_one_wire_format() -> Result<(), StorageError> {
@@ -694,7 +753,7 @@ mod storage_tests {
         assert_eq!(storage.to_bytes()?, bytes);
         assert_eq!(storage.filters.len(), 1);
         let SearchIndexData::Xor8(index) = &storage.filters.data else {
-            return Err(StorageError::InvalidData(
+            return Err(StorageError::MalformedIndex(
                 "v0.10 Xor8 fixture decoded as an exact index",
             ));
         };
@@ -748,7 +807,7 @@ mod storage_tests {
 
         assert!(matches!(
             Storage::from_bytes(&bytes),
-            Err(StorageError::InvalidData(_))
+            Err(StorageError::MalformedIndex(_))
         ));
         Ok(())
     }
