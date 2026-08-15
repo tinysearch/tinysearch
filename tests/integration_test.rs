@@ -38,6 +38,8 @@ fn test_cli_wasm_mode() {
     );
 
     let temp_dir = TempDir::new().expect("Failed to create temp directory");
+    let crate_temp_dir = TempDir::new().expect("Failed to create generated crate directory");
+    let generated_crate = crate_temp_dir.path().join("generated-crate");
 
     let current_dir = std::env::current_dir().unwrap();
     let output = Command::new("cargo")
@@ -45,8 +47,12 @@ fn test_cli_wasm_mode() {
             "run",
             "--features=bin",
             "--",
+            "--shard-size",
+            "4096",
             "-m",
             "wasm",
+            "--crate-path",
+            generated_crate.to_str().unwrap(),
             "-p",
             temp_dir.path().to_str().unwrap(),
             "--engine-version",
@@ -67,36 +73,246 @@ fn test_cli_wasm_mode() {
         panic!("WASM build failed unexpectedly");
     }
 
-    // Verify that WASM and JS files were created
-    let wasm_files: Vec<_> = std::fs::read_dir(&temp_dir)
-        .expect("Failed to read output directory")
-        .filter_map(std::result::Result::ok)
-        .filter(|entry| {
-            entry
-                .path()
-                .extension()
-                .and_then(|ext| ext.to_str())
-                .is_some_and(|ext| ext == "wasm" || ext == "js")
-        })
-        .collect();
+    assert_sharded_wasm_artifacts(&temp_dir);
+    assert_sharded_loader(&temp_dir);
 
-    assert!(!wasm_files.is_empty(), "No WASM/JS files were generated");
+    assert_release_wasm_output(&temp_dir, &generated_crate, &current_dir);
+    assert_xor8_wasm_output(&generated_crate, &current_dir);
+}
 
-    // Specifically check for both .wasm and .js files
-    let has_wasm = wasm_files
-        .iter()
-        .any(|entry| entry.path().extension().and_then(|ext| ext.to_str()) == Some("wasm"));
-    let has_js = wasm_files
-        .iter()
-        .any(|entry| entry.path().extension().and_then(|ext| ext.to_str()) == Some("js"));
-
-    assert!(has_wasm, "No .wasm file was generated");
-    assert!(has_js, "No .js file was generated");
+fn assert_sharded_wasm_artifacts(temp_dir: &TempDir) {
+    assert!(temp_dir.path().join("tinysearch_engine.wasm").exists());
+    assert!(temp_dir.path().join("tinysearch_engine.js").exists());
+    assert!(temp_dir.path().join("tinysearch.root").exists());
 
     let demo = std::fs::read_to_string(temp_dir.path().join("demo.html"))
         .expect("Failed to read generated demo");
     assert!(demo.contains("addEventListener('input', performSearch)"));
     assert!(demo.contains("Results update as you type"));
+
+    let shard_count = std::fs::read_dir(temp_dir)
+        .expect("Failed to inspect generated shards")
+        .filter_map(std::result::Result::ok)
+        .filter(|entry| {
+            entry
+                .path()
+                .extension()
+                .and_then(|extension| extension.to_str())
+                == Some("tinysearch-shard")
+        })
+        .count();
+    assert!(shard_count > 1, "Expected multiple lazy-loadable shards");
+}
+
+fn assert_sharded_loader(temp_dir: &TempDir) {
+    let output = Command::new("node")
+        .args([
+            "tests/wasm_loader_test.mjs",
+            temp_dir.path().to_str().unwrap(),
+        ])
+        .output()
+        .expect("Failed to execute Node.js loader integration test");
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        eprintln!("Loader test failed. Stdout: {stdout}");
+        eprintln!("Loader test failed. Stderr: {stderr}");
+    }
+    assert!(
+        output.status.success(),
+        "Generated JS/WASM loader integration test failed"
+    );
+}
+
+fn assert_release_wasm_output(
+    temp_dir: &TempDir,
+    generated_crate: &std::path::Path,
+    current_dir: &std::path::Path,
+) {
+    let retained_shard = temp_dir
+        .path()
+        .join("0000000000000000000000000000000000000000000000000000000000000000.tinysearch-shard");
+    std::fs::write(&retained_shard, b"previous immutable shard")
+        .expect("Failed to write retained shard fixture");
+
+    let release_output = Command::new("cargo")
+        .args([
+            "run",
+            "--features=bin",
+            "--",
+            "--release",
+            "--shard-size",
+            "4096",
+            "-m",
+            "wasm",
+            "--crate-path",
+            generated_crate.to_str().unwrap(),
+            "-p",
+            temp_dir.path().to_str().unwrap(),
+            "--engine-version",
+            &format!("path=\"{}\"", current_dir.display()),
+            "fixtures/index.json",
+        ])
+        .output()
+        .expect("Failed to execute release WASM command");
+    if !release_output.status.success() {
+        let stderr = String::from_utf8_lossy(&release_output.stderr);
+        let stdout = String::from_utf8_lossy(&release_output.stdout);
+        eprintln!("Release WASM build failed. Stdout: {stdout}");
+        eprintln!("Release WASM build failed. Stderr: {stderr}");
+    }
+    assert!(release_output.status.success());
+    assert!(temp_dir.path().join("tinysearch_engine.wasm").exists());
+    assert!(temp_dir.path().join("tinysearch_engine.js").exists());
+    assert!(temp_dir.path().join("tinysearch.root").exists());
+    assert_eq!(
+        std::fs::read(&retained_shard).expect("Release removed the retained shard"),
+        b"previous immutable shard"
+    );
+    assert!(
+        !temp_dir.path().join("demo.html").exists(),
+        "Release output must omit the demo"
+    );
+    assert!(
+        std::fs::read_dir(temp_dir)
+            .expect("Failed to inspect release shards")
+            .filter_map(std::result::Result::ok)
+            .any(|entry| {
+                entry
+                    .path()
+                    .extension()
+                    .and_then(|extension| extension.to_str())
+                    == Some("tinysearch-shard")
+            }),
+        "Release output must retain sharded artifacts"
+    );
+}
+
+fn assert_xor8_wasm_output(generated_crate: &std::path::Path, current_dir: &std::path::Path) {
+    let output_dir = TempDir::new().expect("Failed to create Xor8 output directory");
+    let output = Command::new("cargo")
+        .args([
+            "run",
+            "--features=bin",
+            "--",
+            "--release",
+            "--indexer",
+            "xor8",
+            "-m",
+            "wasm",
+            "--crate-path",
+            generated_crate.to_str().unwrap(),
+            "-p",
+            output_dir.path().to_str().unwrap(),
+            "--engine-version",
+            &format!("path=\"{}\"", current_dir.display()),
+            "fixtures/index.json",
+        ])
+        .output()
+        .expect("Failed to generate Xor8 WASM output");
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        eprintln!("Xor8 WASM build failed. Stdout: {stdout}");
+        eprintln!("Xor8 WASM build failed. Stderr: {stderr}");
+    }
+    assert!(output.status.success());
+
+    let loader_test = Command::new("node")
+        .args([
+            "tests/legacy_wasm_loader_test.mjs",
+            output_dir.path().to_str().unwrap(),
+        ])
+        .output()
+        .expect("Failed to execute Xor8 loader integration test");
+    if !loader_test.status.success() {
+        let stderr = String::from_utf8_lossy(&loader_test.stderr);
+        let stdout = String::from_utf8_lossy(&loader_test.stdout);
+        eprintln!("Xor8 loader test failed. Stdout: {stdout}");
+        eprintln!("Xor8 loader test failed. Stderr: {stderr}");
+    }
+    assert!(loader_test.status.success());
+}
+
+#[test]
+fn test_cli_exact_crate_non_top_level_keeps_embedded_search_api() {
+    let temp_dir = TempDir::new().expect("Failed to create temp directory");
+    let current_dir = std::env::current_dir().expect("Failed to resolve repository directory");
+    let output = Command::new("cargo")
+        .args([
+            "run",
+            "--features=bin",
+            "--",
+            "-m",
+            "crate",
+            "--indexer",
+            "exact",
+            "--non-top-level-crate",
+            "-p",
+            temp_dir.path().to_str().unwrap(),
+            "--engine-version",
+            &format!(
+                "path=\"{current_dir}\"",
+                current_dir = current_dir.display()
+            ),
+            "fixtures/index.json",
+        ])
+        .output()
+        .expect("Failed to generate exact embedded crate");
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        eprintln!("Exact crate generation failed. Stdout: {stdout}");
+        eprintln!("Exact crate generation failed. Stderr: {stderr}");
+    }
+    assert!(output.status.success());
+
+    let storage_path = temp_dir.path().join("src/storage");
+    assert!(storage_path.exists(), "Exact crate must embed src/storage");
+    assert!(
+        !temp_dir.path().join("index").exists(),
+        "Crate mode must not emit external sharded artifacts"
+    );
+    let library = std::fs::read_to_string(temp_dir.path().join("src/lib.rs"))
+        .expect("Failed to read generated exact crate library");
+    assert!(library.contains("pub fn search_local"));
+    assert!(library.contains("include_bytes!(\"storage\")"));
+    assert!(!library.contains("ShardedIndex"));
+
+    let cargo_toml = std::fs::read_to_string(temp_dir.path().join("Cargo.toml"))
+        .expect("Failed to read generated Cargo.toml");
+    assert!(!cargo_toml.contains("[workspace]"));
+    assert!(cargo_toml.contains("[lib]"));
+
+    let smoke_bin_dir = temp_dir.path().join("src/bin");
+    std::fs::create_dir_all(&smoke_bin_dir).expect("Failed to create smoke binary directory");
+    std::fs::write(
+        smoke_bin_dir.join("search_smoke.rs"),
+        r#"fn main() {
+    let results = tinysearch_engine::search_local("decades".to_owned(), 5);
+    assert!(!results.is_empty());
+}
+"#,
+    )
+    .expect("Failed to write search_local smoke binary");
+
+    let smoke_output = Command::new("cargo")
+        .args([
+            "run",
+            "--manifest-path",
+            temp_dir.path().join("Cargo.toml").to_str().unwrap(),
+            "--bin",
+            "search_smoke",
+        ])
+        .output()
+        .expect("Failed to compile and run generated exact crate");
+    if !smoke_output.status.success() {
+        let stderr = String::from_utf8_lossy(&smoke_output.stderr);
+        let stdout = String::from_utf8_lossy(&smoke_output.stdout);
+        eprintln!("Generated exact crate smoke test failed. Stdout: {stdout}");
+        eprintln!("Generated exact crate smoke test failed. Stderr: {stderr}");
+    }
+    assert!(smoke_output.status.success());
 }
 
 #[test]

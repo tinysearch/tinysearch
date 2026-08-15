@@ -37,6 +37,13 @@ that map each word to the articles containing it. Document IDs are delta- and
 varint-encoded, which keeps the index compact and compressible. Exact and prefix
 searches use the same index and do not introduce probabilistic false positives.
 
+WASM builds split the exact vocabulary into immutable lexical shards. A small
+root routes each query to the relevant content-addressed shards, which the
+JavaScript loader fetches and caches on demand. The WASM engine is independent
+of corpus size and validates each shard before merging it into the live index.
+See [Sharded indexes](docs/sharded-index.md) for the format, cache model, tests,
+and initial size measurements.
+
 The optional `xor8` indexer creates smaller probabilistic per-article filters.
 It supports title prefixes, but body and metadata searches require complete
 words. Previously generated Xor-filter indexes use this same path.
@@ -46,9 +53,11 @@ words. Previously generated Xor-filter indexes use this same path.
 - With the default exact indexer, prefix matching starts once a query term
   reaches three characters. Shorter terms require an exact match.
 - The `xor8` indexer only supports prefixes in titles.
-- Since we bundle all search indices for all articles into one static binary, we
-  recommend to only use it for small- to medium-size websites. Expect around 2
-  kB uncompressed per article (~1 kb compressed).
+- Query-selective lazy loading is available for the default exact backend. The
+  optional Xor8 backend still embeds its complete index in the WASM module.
+- Loaded exact shards remain in WASM memory for the lifetime of the engine. A
+  long session that searches the entire vocabulary can eventually load the
+  complete index.
 
 ## Installation
 
@@ -108,7 +117,29 @@ tinysearch --release -o -m wasm -p wasm_output fixtures/index.json
 tinysearch --indexer xor8 -m wasm -p wasm_output fixtures/index.json
 ```
 
-This creates a dependency-free WASM module using vanilla `cargo build` instead of `wasm-pack`.
+This creates a dependency-free ES module loader, a corpus-independent WASM
+engine, `tinysearch.root`, and content-addressed `.tinysearch-shard` files using
+vanilla `cargo build` instead of `wasm-pack`. The default raw shard target is
+64 KiB; tune it with `--shard-size`, for example `--shard-size 32768`.
+
+Load and search it with:
+
+```js
+import { initTinysearch } from './tinysearch_engine.js';
+
+const engine = await initTinysearch();
+const results = await engine.search('rust wasm', 10);
+```
+
+The loader resolves the root, WASM, and shards relative to its own module URL.
+Custom URLs and a custom `fetch` implementation can also be supplied.
+
+### Migrating from 0.11
+
+Version 0.12 makes the generated loader's `search()` method asynchronous for
+both exact and Xor8 indexes. Callers must `await engine.search(...)`. The
+original `init_tinysearch()` initializer remains available as an alias, but the
+camel-case `initTinysearch()` spelling is preferred.
 
 ## Demo
 
@@ -222,7 +253,9 @@ tinysearch --help
 
 Please check what's required to
 [host WebAssembly in production](https://rustwasm.github.io/book/reference/deploying-to-production.html)
--- you will need to explicitly set gzip mime types.
+-- serve the WASM file as `application/wasm` and enable Brotli or gzip for the
+WASM, root, loader, and shards. Content-addressed shards can use immutable cache
+headers; the root should be revalidated.
 
 ## Docker
 

@@ -486,8 +486,7 @@ impl TinySearch {
         })
     }
 
-    /// Remove non-ascii characters from string
-    /// Keep apostrophe (e.g. for words like "don't")
+    /// Replaces non-letter punctuation with spaces while preserving apostrophes.
     fn cleanup(s: &str) -> String {
         s.replace(|c: char| !(c.is_alphabetic() || c == '\''), " ")
     }
@@ -517,7 +516,7 @@ impl TinySearch {
             })
             .collect();
 
-        split_posts
+        let mut documents: Vec<IndexedDocument> = split_posts
             .into_iter()
             .map(|(post_id, body)| {
                 let mut content = Self::tokenize_with_stopwords(&post_id.title, stopwords);
@@ -529,7 +528,15 @@ impl TinySearch {
                 }
                 IndexedDocument::new(post_id, content)
             })
-            .collect()
+            .collect();
+        documents.sort_by(|left, right| {
+            (&left.post.url, &left.post.title, &left.post.meta).cmp(&(
+                &right.post.url,
+                &right.post.title,
+                &right.post.meta,
+            ))
+        });
+        documents
     }
 
     /// Prepare posts for index generation (internal implementation)

@@ -1,6 +1,6 @@
 [package]
 name = "tinysearch"
-version = "0.11.0"
+version = "0.12.0"
 authors = ["Matthias Endler <matthias-endler@gmx.net>"]
 edition = "2024"
 rust-version = "1.85"
@@ -23,6 +23,7 @@ required-features = ["bin"]
 
 [dependencies]
 bincode = { version = "2.0.1", features = ["serde"] }
+sha2 = { version = "0.10.9", default-features = false }
 
 argh = { version = "0.1.19", optional = true }
 log = { version = "0.4.33", optional = true }
