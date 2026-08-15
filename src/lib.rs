@@ -39,6 +39,7 @@
 //! ```
 
 pub mod api;
+pub mod sharded;
 
 use serde::{Deserialize, Serialize};
 use std::cmp::Reverse;
@@ -280,6 +281,19 @@ impl SearchIndex {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Converts an exact index into a root and content-addressed lexical shards.
+    ///
+    /// Existing monolithic serialization is unchanged. Shard posting lists keep
+    /// the exact index's global dense document identifiers.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ShardError::UnsupportedBackend`] for Xor8 indexes, or a
+    /// validation or encoding error if the exact index cannot be sharded.
+    pub fn to_sharded_bundle(&self, config: ShardConfig) -> Result<ShardedIndexBundle, ShardError> {
+        sharded::build_bundle(self, config)
+    }
 }
 
 impl From<Vec<PostFilter>> for SearchIndex {
@@ -304,6 +318,10 @@ impl Default for SearchIndex {
 
 // Re-export public API types from the API module
 pub use api::{BasicPost, Post, TinySearch};
+pub use sharded::{
+    ShardArtifact, ShardConfig, ShardDescriptor, ShardError, ShardId, ShardedIndex,
+    ShardedIndexBundle,
+};
 
 /// Configuration schema for tinysearch.toml
 #[cfg(feature = "bin")]
@@ -865,39 +883,50 @@ fn title_term_score(title_terms: &[String], search_term: &str) -> usize {
     }
 }
 
+fn title_scores(posts: &[PostId], search_terms: &[String]) -> Vec<usize> {
+    let title_terms: Vec<Vec<String>> = posts.iter().map(|post| tokenize(&post.title)).collect();
+    let mut scores = vec![0_usize; posts.len()];
+    for search_term in search_terms {
+        for (score, terms) in scores.iter_mut().zip(&title_terms) {
+            *score = score.saturating_add(title_term_score(terms, search_term));
+        }
+    }
+    scores
+}
+
+fn matching_term_range(terms: &[String], search_term: &str) -> std::ops::Range<usize> {
+    let start = terms.partition_point(|term| term.as_str() < search_term);
+    let Some(candidates) = terms.get(start..) else {
+        return start..start;
+    };
+    let matching_count = if search_term.chars().count() >= MIN_PREFIX_LEN {
+        candidates
+            .iter()
+            .take_while(|term| term.starts_with(search_term))
+            .count()
+    } else {
+        usize::from(candidates.first().is_some_and(|term| term == search_term))
+    };
+    start..start.saturating_add(matching_count)
+}
+
 fn search_exact<'index>(
     index: &'index ExactIndex,
     search_terms: &[String],
     num_results: usize,
 ) -> Vec<&'index PostId> {
-    let title_terms: Vec<Vec<String>> = index
-        .posts
-        .iter()
-        .map(|post| tokenize(&post.title))
-        .collect();
-    let mut scores = vec![0_usize; index.posts.len()];
+    let mut scores = title_scores(&index.posts, search_terms);
     let mut content_matches = vec![false; index.posts.len()];
 
     for search_term in search_terms {
-        for (score, terms) in scores.iter_mut().zip(&title_terms) {
-            *score = score.saturating_add(title_term_score(terms, search_term));
-        }
-
         content_matches.fill(false);
-        let start = index
-            .terms
-            .partition_point(|term| term.as_str() < search_term.as_str());
-        let candidates = index.terms.get(start..).unwrap_or(&[]);
-        let matching_terms = if search_term.chars().count() >= MIN_PREFIX_LEN {
-            candidates
-                .iter()
-                .take_while(|term| term.starts_with(search_term))
-                .count()
-        } else {
-            usize::from(candidates.first().is_some_and(|term| term == search_term))
-        };
-
-        for postings in index.postings.iter().skip(start).take(matching_terms) {
+        let matching_terms = matching_term_range(&index.terms, search_term);
+        for postings in index
+            .postings
+            .iter()
+            .skip(matching_terms.start)
+            .take(matching_terms.len())
+        {
             for &document in postings {
                 if let Some(content_match) = content_matches.get_mut(document) {
                     *content_match = true;

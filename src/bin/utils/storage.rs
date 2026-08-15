@@ -1,20 +1,26 @@
 use anyhow::Error;
 use std::collections::{HashMap, HashSet};
 use std::fs;
-use std::path;
+use std::path::Path;
 
 use super::assets::STOP_WORDS;
 use super::index::Posts;
 use strip_markdown::strip_markdown;
-use tinysearch::{IndexKind, IndexedDocument, PostId, SearchIndex, SearchSchema, Storage};
+use tinysearch::{
+    IndexKind, IndexedDocument, PostId, SearchIndex, SearchSchema, ShardConfig, Storage,
+};
 
-pub fn write(
-    posts: Posts,
-    path: &path::PathBuf,
-    schema: &SearchSchema,
-    index_kind: IndexKind,
-) -> Result<(), Error> {
-    let index = build(posts, schema, index_kind);
+pub const ROOT_FILENAME: &str = "tinysearch.root";
+pub const SHARD_FILE_SUFFIX: &str = ".tinysearch-shard";
+
+pub struct ShardedArtifacts {
+    pub root_bytes: usize,
+    pub shard_files: Vec<String>,
+    pub total_shard_bytes: usize,
+    pub max_shard_bytes: usize,
+}
+
+pub fn write(index: SearchIndex, path: &Path) -> Result<(), Error> {
     trace!("Storage::from");
     let storage = Storage::from(index);
     trace!("Write");
@@ -23,13 +29,47 @@ pub fn write(
     Ok(())
 }
 
-fn build(posts: Posts, schema: &SearchSchema, index_kind: IndexKind) -> SearchIndex {
+pub fn write_sharded(
+    index: &SearchIndex,
+    directory: &Path,
+    config: ShardConfig,
+) -> Result<ShardedArtifacts, Error> {
+    if directory.try_exists()? {
+        fs::remove_dir_all(directory)?;
+    }
+    fs::create_dir_all(directory)?;
+
+    let bundle = index.to_sharded_bundle(config)?;
+    let (root_bytes, shards) = bundle.into_parts();
+    let root_size = root_bytes.len();
+    fs::write(directory.join(ROOT_FILENAME), root_bytes)?;
+
+    let mut shard_files = Vec::with_capacity(shards.len());
+    let mut total_shard_bytes = 0_usize;
+    let mut max_shard_bytes = 0_usize;
+    for artifact in shards {
+        let (descriptor, bytes) = artifact.into_parts();
+        let shard_size = bytes.len();
+        fs::write(directory.join(&descriptor.filename), bytes)?;
+        total_shard_bytes = total_shard_bytes.saturating_add(shard_size);
+        max_shard_bytes = max_shard_bytes.max(shard_size);
+        shard_files.push(descriptor.filename);
+    }
+
+    Ok(ShardedArtifacts {
+        root_bytes: root_size,
+        shard_files,
+        total_shard_bytes,
+        max_shard_bytes,
+    })
+}
+
+pub fn build(posts: Posts, schema: &SearchSchema, index_kind: IndexKind) -> SearchIndex {
     let posts = prepare_posts(posts, schema);
     generate_index(posts, index_kind)
 }
 
-/// Remove non-ascii characters from string
-/// Keep apostrophe (e.g. for words like "don't")
+/// Replaces non-letter punctuation with spaces while preserving apostrophes.
 fn cleanup(s: &str) -> String {
     s.replace(|c: char| !(c.is_alphabetic() || c == '\''), " ")
 }
@@ -60,7 +100,7 @@ pub fn generate_index(
         })
         .collect();
 
-    let documents: Vec<IndexedDocument> = split_posts
+    let mut documents: Vec<IndexedDocument> = split_posts
         .into_iter()
         .map(|(post_id, body)| {
             let mut content = tokenize(&post_id.title, &stopwords);
@@ -73,6 +113,13 @@ pub fn generate_index(
             IndexedDocument::new(post_id, content)
         })
         .collect();
+    documents.sort_by(|left, right| {
+        (&left.post.url, &left.post.title, &left.post.meta).cmp(&(
+            &right.post.url,
+            &right.post.title,
+            &right.post.meta,
+        ))
+    });
     trace!("Done");
     index_kind.backend().build(documents)
 }

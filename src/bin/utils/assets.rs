@@ -6,6 +6,10 @@ pub static CRATE_LIB_RS: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/assets/crate/src/lib.rs"
 ));
+pub static SHARDED_CRATE_LIB_RS: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/assets/crate/src/sharded_lib.rs"
+));
 
 // Include a bare-bones HTML page template that demonstrates how tinysearch is used
 pub static DEMO_HTML: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/demo.html"));
@@ -16,4 +20,8 @@ pub static STOP_WORDS: &str =
 pub static JS_LOADER: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/assets/tinysearch_loader.js"
+));
+pub static LEGACY_JS_LOADER: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/assets/legacy_tinysearch_loader.js"
 ));
